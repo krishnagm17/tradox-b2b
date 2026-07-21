@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, ArrowRight, CheckCircle2, AlertCircle, ShieldCheck, Globe } from "lucide-react";
 import { Button } from "../components/ui/Button";
@@ -132,7 +132,7 @@ export default function Register() {
       setLoading(true);
       try {
         const token = await auth.currentUser.getIdToken();
-        const response = await fetch("http://localhost:8000/api/users", {
+        const response = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -194,7 +194,7 @@ export default function Register() {
           </div>
 
           <div className="relative z-10 mt-auto pt-12 border-t border-white/10 flex items-center justify-between text-xs text-slate-500 font-mono uppercase tracking-widest">
-            <span>© 2024 TradoxB2B</span>
+            <span>Â© 2024 TradoxB2B</span>
             <span>Enterprise Secure</span>
           </div>
         </div>
@@ -276,7 +276,7 @@ export default function Register() {
 
               <div className="space-y-2 mb-8">
                 <label className="text-[0.65rem] font-semibold tracking-[0.1em] text-brand-navy uppercase">Create Password *</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-white border border-border text-foreground focus:border-primary h-11 px-4 text-sm rounded-[3px] outline-none transition-all shadow-sm" />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="w-full bg-white border border-border text-foreground focus:border-primary h-11 px-4 text-sm rounded-[3px] outline-none transition-all shadow-sm" />
               </div>
 
               <Button 

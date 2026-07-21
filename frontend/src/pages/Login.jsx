@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle2, AlertCircle, Building2, ShieldCheck, Globe } from "lucide-react";
 import { Button } from "../components/ui/Button";
@@ -49,7 +49,7 @@ export default function Login() {
       
       // Check if they have a MongoDB profile
       const token = await user.getIdToken();
-      const res = await fetch("http://localhost:8000/api/users/me", {
+      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       
@@ -167,7 +167,7 @@ export default function Login() {
       setLoading(true);
       try {
         const token = await auth.currentUser.getIdToken();
-        const res = await fetch("http://localhost:8000/api/users/me", {
+        const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         
@@ -224,7 +224,7 @@ export default function Login() {
           </div>
 
           <div className="relative z-10 mt-auto pt-12 border-t border-white/10 flex items-center justify-between text-xs text-slate-500 font-mono uppercase tracking-widest">
-            <span>© 2024 TradoxB2B</span>
+            <span>Â© 2024 TradoxB2B</span>
             <span>Enterprise Secure</span>
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function Login() {
                     type="password" 
                     value={password} 
                     onChange={e => setPassword(e.target.value)} 
-                    placeholder="••••••••" 
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" 
                     className="w-full bg-white border border-border text-foreground focus:border-primary h-11 px-4 text-sm rounded-[3px] outline-none transition-all shadow-sm"
                   />
                 </div>

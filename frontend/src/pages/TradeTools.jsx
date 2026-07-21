@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -11,7 +11,7 @@ export default function TradeTools() {
     <div className="min-h-screen bg-background text-foreground p-6 font-sans">
       <div className="max-w-5xl mx-auto w-full">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="outline" size="sm" onClick={() => navigate("/live-board")}>← Back to Board</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/live-board")}>â† Back to Board</Button>
           <h1 className="text-3xl font-heading font-bold">Trade Utility Tools</h1>
         </div>
 

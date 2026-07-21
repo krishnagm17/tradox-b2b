@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
 import { auth } from "../config/firebase";
@@ -39,17 +39,17 @@ export default function NegotiationRoom() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
 
-      const roomRes = await fetch(`http://localhost:8000/api/negotiations/rooms/${id}`, {
+      const roomRes = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (roomRes.ok) setRoom(await roomRes.json());
 
-      const msgRes = await fetch(`http://localhost:8000/api/negotiations/rooms/${id}/messages`, {
+      const msgRes = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}/messages`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (msgRes.ok) setMessages(await msgRes.json());
 
-      const userRes = await fetch("http://localhost:8000/api/users/me", {
+      const userRes = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (userRes.ok) {
@@ -117,7 +117,7 @@ export default function NegotiationRoom() {
         validity_hours: parseInt(offerData.validity_hours)
       };
 
-      const res = await fetch(`http://localhost:8000/api/negotiations/rooms/${id}/offers`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}/offers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,7 +139,7 @@ export default function NegotiationRoom() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
 
-      const res = await fetch(`http://localhost:8000/api/negotiations/rooms/${id}/accept`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}/accept`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -180,7 +180,7 @@ export default function NegotiationRoom() {
               </span>
             </div>
             <div className="text-[0.65rem] font-mono tracking-widest text-primary uppercase">
-              Online · End-to-End Encrypted
+              Online Â· End-to-End Encrypted
             </div>
           </div>
         </div>
@@ -226,7 +226,7 @@ export default function NegotiationRoom() {
                     <div className="bg-primary/10 border border-primary/30 text-primary text-xs px-4 py-3 rounded-md text-center max-w-md">
                       <p className="font-semibold">{msg.content.split('Contract generated:')[0]}</p>
                       {msg.content.includes('Contract generated:') && (
-                        <a href={`http://localhost:8000${msg.content.split('Contract generated: ')[1]}`} target="_blank" rel="noreferrer" className="inline-block mt-2 text-foreground bg-primary/20 hover:bg-primary hover:text-foreground px-3 py-1.5 rounded transition-colors font-mono uppercase tracking-widest text-[0.65rem]">
+                        <a href={`${import.meta.env.VITE_API_URL || "http://localhost:8000"}${msg.content.split('Contract generated: ')[1]}`} target="_blank" rel="noreferrer" className="inline-block mt-2 text-foreground bg-primary/20 hover:bg-primary hover:text-foreground px-3 py-1.5 rounded transition-colors font-mono uppercase tracking-widest text-[0.65rem]">
                           Download Sales Contract PDF
                         </a>
                       )}

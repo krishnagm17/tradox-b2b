@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Filter, X } from "lucide-react";
 import Navbar from "../components/Navbar";
@@ -19,7 +19,7 @@ export default function LiveBoard() {
       if (user) {
         try {
           const token = await user.getIdToken();
-          const res = await fetch("http://localhost:8000/api/users/me", {
+          const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
             headers: { "Authorization": `Bearer ${token}` }
           });
           if (res.ok) {
@@ -42,8 +42,8 @@ export default function LiveBoard() {
   const fetchBoardData = async () => {
     try {
       const [prodRes, rfqRes] = await Promise.all([
-        fetch("http://localhost:8000/api/products"),
-        fetch("http://localhost:8000/api/rfqs")
+        fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/products"),
+        fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/rfqs")
       ]);
       
       let allItems = [];
@@ -107,7 +107,7 @@ export default function LiveBoard() {
         ? { productId: selectedItem.id }
         : { rfqId: selectedItem.id };
 
-      const res = await fetch("http://localhost:8000/api/negotiations/rooms", {
+      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/negotiations/rooms", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -155,7 +155,7 @@ export default function LiveBoard() {
               <span className="text-[0.65rem] font-mono tracking-widest text-primary uppercase">Live Negotiation Board</span>
             </div>
             <h1 className="text-3xl lg:text-4xl font-heading font-medium tracking-tight mb-3">
-              Broadcasted lots <span className="text-muted-foreground">·</span> Global buyers & sellers
+              Broadcasted lots <span className="text-muted-foreground">Â·</span> Global buyers & sellers
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Real-time trading floor. Buyers post requirements (RFQs). Sellers post inventory (Products). Negotiate instantly.
@@ -194,7 +194,7 @@ export default function LiveBoard() {
                 <tr className="border-b border-border bg-muted">
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal w-1/4">Commodity</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal text-right">Price</th>
-                  <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal">Origin → Dest</th>
+                  <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal">Origin â†’ Dest</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal text-right">Qty</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal">Incoterm</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal text-center">Action</th>
@@ -222,7 +222,7 @@ export default function LiveBoard() {
                         <div className="text-sm font-medium text-emerald-400">{item.price}</div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-foreground">{item.origin} <span className="text-muted-foreground mx-1">→</span> {item.destination}</div>
+                        <div className="text-sm text-foreground">{item.origin} <span className="text-muted-foreground mx-1">â†’</span> {item.destination}</div>
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="text-sm text-foreground">{item.volume}</div>

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { cn } from "./Button";
 
 export const Table = React.forwardRef(({ className, ...props }, ref) => (

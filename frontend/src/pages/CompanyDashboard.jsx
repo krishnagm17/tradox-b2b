@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Package, FileText, X, Loader2, ArrowRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
@@ -38,21 +38,21 @@ export default function CompanyDashboard() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
 
-      const rfqRes = await fetch("http://localhost:8000/api/rfqs/me", {
+      const rfqRes = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/rfqs/me", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (rfqRes.ok) {
         setRfqs(await rfqRes.json());
       }
 
-      const prodRes = await fetch("http://localhost:8000/api/products/me", {
+      const prodRes = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/products/me", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (prodRes.ok) {
         setProducts(await prodRes.json());
       }
 
-      const userRes = await fetch("http://localhost:8000/api/users/me", {
+      const userRes = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (userRes.ok) {
@@ -72,7 +72,7 @@ export default function CompanyDashboard() {
     const toastId = toast.loading("Creating RFQ...");
     try {
       const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("http://localhost:8000/api/rfqs", {
+      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/rfqs", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -107,7 +107,7 @@ export default function CompanyDashboard() {
     const toastId = toast.loading("Listing product...");
     try {
       const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("http://localhost:8000/api/products", {
+      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/products", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

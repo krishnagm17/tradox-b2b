@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
@@ -22,7 +22,7 @@ export default function DealTracker() {
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
-      const res = await fetch(`http://localhost:8000/api/orders/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/orders/${id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -41,7 +41,7 @@ export default function DealTracker() {
     try {
       const token = await auth.currentUser?.getIdToken();
       const newStage = Math.min(order.stage + 1, 5);
-      const res = await fetch(`http://localhost:8000/api/orders/${id}/stage`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/orders/${id}/stage`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ stage: newStage })
@@ -74,7 +74,7 @@ export default function DealTracker() {
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans p-6">
       <div className="max-w-5xl mx-auto w-full">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>← Back to Dashboard</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>â† Back to Dashboard</Button>
           <h1 className="text-2xl font-heading font-semibold">Deal Lifecycle: {id.substring(0,8)}...</h1>
           {currentStep === 5 ? (
              <Badge className="ml-auto bg-emerald-500/20 text-emerald-600 border-emerald-500/50">DELIVERED</Badge>

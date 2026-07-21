@@ -1,4 +1,4 @@
-export const COMMODITIES = [
+﻿export const COMMODITIES = [
   "Basmati Rice", "Non-Basmati Rice", "Wheat",
   "Sugar", "Gold Bullion", "Silver",
   "Cement (OPC/PPC)", "TMT Steel Bars", "Cotton",

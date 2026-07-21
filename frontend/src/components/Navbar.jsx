@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -49,7 +49,7 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
   const fetchUserDetails = async (currentUser) => {
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch("http://localhost:8000/api/users/me", {
+      const response = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -107,7 +107,7 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
     setSaving(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch("http://localhost:8000/api/users/me/commodities", {
+      const response = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me/commodities", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

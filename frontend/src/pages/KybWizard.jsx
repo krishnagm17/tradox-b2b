@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -28,7 +28,7 @@ export default function KybWizard() {
       const toastId = toast.loading("Verifying business documents...");
       try {
         const token = await auth.currentUser?.getIdToken();
-        const res = await fetch("http://localhost:8000/api/users/kyb", {
+        const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/kyb", {
           method: "POST",
           headers: { "Authorization": `Bearer ${token}` }
         });

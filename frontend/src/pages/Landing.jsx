@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Activity, ShieldCheck, Lock, Globe, Percent, Building2, Package, ArrowRight } from "lucide-react";
@@ -27,8 +27,8 @@ export default function Landing() {
   }, []);
 
   const renderTickerChange = (change) => {
-    if (change > 0) return <span className="text-primary font-semibold">▲ +{change.toFixed(2)}%</span>;
-    if (change < 0) return <span className="text-destructive font-semibold">▼ {change.toFixed(2)}%</span>;
+    if (change > 0) return <span className="text-primary font-semibold">â–² +{change.toFixed(2)}%</span>;
+    if (change < 0) return <span className="text-destructive font-semibold">â–¼ {change.toFixed(2)}%</span>;
     return <span className="text-muted-foreground">- 0.00%</span>;
   };
 
@@ -247,7 +247,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-[0.6rem] font-mono tracking-[0.15em] text-white/40 uppercase">
-            <p>© 2026 TRADOXB2B PRIVATE LIMITED</p>
+            <p>Â© 2026 TRADOXB2B PRIVATE LIMITED</p>
             <p>INSTITUTIONAL SECURE NETWORK</p>
           </div>
         </div>

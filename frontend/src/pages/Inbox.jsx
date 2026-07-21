@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageSquare, ArrowRight, Clock, CheckCircle2 } from "lucide-react";
 import Navbar from "../components/Navbar";
@@ -18,7 +18,7 @@ export default function Inbox() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
 
-      const res = await fetch("http://localhost:8000/api/negotiations/rooms", {
+      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/negotiations/rooms", {
         headers: {
           "Authorization": `Bearer ${token}`
         }
