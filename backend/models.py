@@ -8,12 +8,12 @@ class Company(BaseModel):
     companyName: str
     gst: Optional[str] = None
     iec: Optional[str] = None
-    country: str
-    businessCategory: str
+    country: str = "India"
+    businessCategory: str = "Wholesale Trading"
     verified: bool = False
     rating: float = 0.0
     logo: Optional[str] = None
-    address: str
+    address: str = "Registered Address"
     commodities: str = ""
     kybStatus: str = "PENDING"  # PENDING, SUBMITTED, VERIFIED
     kybData: Optional[Dict] = None
@@ -41,9 +41,9 @@ class UserCreate(BaseModel):
     companyName: str
     gst: Optional[str] = None
     iec: Optional[str] = None
-    country: str
-    businessCategory: str
-    address: str
+    country: str = "India"
+    businessCategory: str = "Wholesale Trading"
+    address: str = "Registered Address"
 
 class Product(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
