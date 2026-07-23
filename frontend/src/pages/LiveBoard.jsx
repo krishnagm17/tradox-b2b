@@ -147,28 +147,25 @@ export default function LiveBoard() {
         }
       />
 
-      <main className="flex-1 px-8 lg:px-16 pt-12 pb-24 max-w-[1400px] mx-auto w-full relative">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      <main className="flex-1 px-4 sm:px-8 lg:px-16 pt-6 sm:pt-12 pb-24 max-w-[1400px] mx-auto w-full relative">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-12">
           <div className="max-w-2xl">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-[0.65rem] font-mono tracking-widest text-primary uppercase">Live Negotiation Board</span>
             </div>
-            <h1 className="text-3xl lg:text-4xl font-heading font-medium tracking-tight mb-3">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-heading font-medium tracking-tight mb-2 sm:mb-3">
               Broadcasted lots <span className="text-muted-foreground">•</span> Global buyers & sellers
             </h1>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Real-time trading floor. Buyers post requirements (RFQs). Sellers post inventory (Products). Negotiate instantly.
             </p>
           </div>
           
-          <div className="flex flex-col items-end gap-3">
-            <div className="text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase">
-              Auto-refresh
-            </div>
+          <div className="flex flex-col items-start sm:items-end gap-3">
             <Button 
               onClick={() => navigate("/dashboard")}
-              className="h-10 px-6 text-sm flex items-center"
+              className="h-10 px-6 text-sm flex items-center w-full sm:w-auto justify-center"
             >
               Post to Market
             </Button>
@@ -187,7 +184,59 @@ export default function LiveBoard() {
           </button>
         </div>
 
-        <div className="border border-border rounded-md overflow-hidden bg-card">
+        {/* Mobile View: Cards Layout */}
+        <div className="block md:hidden space-y-4 mb-8">
+          {items.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground bg-card border border-border rounded-lg">
+              No live lots currently posted.
+            </div>
+          ) : (
+            items.map(item => (
+              <div key={item.id} className="bg-card border border-border rounded-lg p-5 space-y-4 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">{item.commodity}</h3>
+                    <span className={`text-[0.65rem] font-mono tracking-wider uppercase font-semibold ${item.type === 'BUY' ? 'text-blue-400' : 'text-orange-400'}`}>
+                      {item.type === 'BUY' ? 'BUY REQUEST (RFQ)' : 'SELL OFFER (PRODUCT)'}
+                    </span>
+                  </div>
+                  <div className="text-base font-mono font-bold text-emerald-400">{item.price}</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-border py-3">
+                  <div>
+                    <span className="text-muted-foreground block text-[0.65rem] font-mono uppercase">Route</span>
+                    <span className="text-foreground">{item.origin} → {item.destination}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[0.65rem] font-mono uppercase">Volume</span>
+                    <span className="text-foreground">{item.volume}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[0.65rem] font-mono uppercase">Incoterm</span>
+                    <span className="text-foreground">{item.incoterm || 'FOB'}</span>
+                  </div>
+                </div>
+
+                <div>
+                  {myCompanyId && item.companyId === myCompanyId ? (
+                    <span className="block text-center text-[0.65rem] text-muted-foreground uppercase font-mono py-2 bg-white/5 rounded">Your Listing</span>
+                  ) : (
+                    <Button 
+                      onClick={() => setSelectedItem(item)}
+                      className="w-full h-10 text-xs font-semibold bg-primary text-background hover:bg-primary/90 transition-all"
+                    >
+                      {item.type === 'BUY' ? 'Submit Bid' : 'Negotiate'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View: Table Layout */}
+        <div className="hidden md:block border border-border rounded-md overflow-hidden bg-card">
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>

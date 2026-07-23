@@ -153,13 +153,13 @@ export default function CompanyDashboard() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header / Search */}
-        <header className="h-16 bg-white border-b border-border flex items-center justify-between px-8 shrink-0">
-          <div className="flex items-center text-muted-foreground bg-muted px-4 py-2 rounded-md w-96 border border-border focus-within:border-primary transition-colors">
-            <Search className="w-4 h-4 mr-2" />
+        <header className="h-16 bg-white border-b border-border flex items-center justify-between px-4 sm:px-8 shrink-0">
+          <div className="flex items-center text-muted-foreground bg-muted px-3 sm:px-4 py-2 rounded-md w-full max-w-xs sm:w-96 border border-border focus-within:border-primary transition-colors">
+            <Search className="w-4 h-4 mr-2 shrink-0" />
             <input 
               type="text" 
-              placeholder="Search products, RFQs, counterparties..." 
-              className="bg-transparent border-none outline-none text-sm w-full text-foreground placeholder:text-slate-400"
+              placeholder="Search products, RFQs..." 
+              className="bg-transparent border-none outline-none text-xs sm:text-sm w-full text-foreground placeholder:text-slate-400"
             />
           </div>
           <div className="flex items-center gap-4">
@@ -170,7 +170,7 @@ export default function CompanyDashboard() {
         </header>
 
         {/* Scrollable Dashboard Content */}
-        <main className="flex-1 overflow-y-auto p-8 lg:p-12">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-12">
           <div className="max-w-[1200px] mx-auto w-full">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
               <div>
@@ -381,10 +381,10 @@ export default function CompanyDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy/60 backdrop-blur-sm p-4">
           <div className="bg-white border border-border rounded-xl w-full max-w-2xl shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
             <button onClick={() => setShowRfqModal(false)} className="absolute top-6 right-6 text-slate-400 hover:text-brand-navy transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X className="w-5 h-5" /></button>
-            <div className="p-8">
-              <h2 className="text-2xl font-heading font-semibold text-brand-navy mb-6">Post RFQ (Buy Request)</h2>
-              <form onSubmit={handleCreateRFQ} className="space-y-5">
-                <div className="grid grid-cols-2 gap-5">
+            <div className="p-4 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-heading font-semibold text-brand-navy mb-6">Request for Quote (Buy)</h2>
+              <form onSubmit={handleCreateRFQ} className="space-y-4 sm:space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                   <div>
                     <label className="block text-[0.7rem] font-semibold text-brand-navy uppercase tracking-wider mb-2">Product Name *</label>
                     <input type="text" required className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm rounded-lg outline-none transition-all shadow-sm" value={rfqForm.product} onChange={e => setRfqForm({...rfqForm, product: e.target.value})} />
@@ -429,10 +429,10 @@ export default function CompanyDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white border border-border rounded-xl w-full max-w-2xl shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-200">
             <button onClick={() => setShowProductModal(false)} className="absolute top-6 right-6 text-slate-400 hover:text-brand-navy transition-colors bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X className="w-5 h-5" /></button>
-            <div className="p-8">
-              <h2 className="text-2xl font-heading font-semibold text-brand-navy mb-6">Add Product (Sell)</h2>
-              <form onSubmit={handleCreateProduct} className="space-y-5">
-                <div className="grid grid-cols-2 gap-5">
+            <div className="p-4 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-heading font-semibold text-brand-navy mb-6">Add Product (Sell)</h2>
+              <form onSubmit={handleCreateProduct} className="space-y-4 sm:space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                   <div>
                     <label className="block text-[0.7rem] font-semibold text-brand-navy uppercase tracking-wider mb-2">Product Name *</label>
                     <input type="text" required className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm rounded-lg outline-none transition-all shadow-sm" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />

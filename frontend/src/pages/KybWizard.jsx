@@ -61,24 +61,24 @@ export default function KybWizard() {
           <p className="text-muted-foreground">We require strict verification before enabling trade capabilities to prevent fraud.</p>
         </div>
 
-        <div className="flex gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
           {steps.map((s, i) => (
-            <div key={i} className={`flex-1 border-t-2 pt-4 transition-colors ${step > i ? 'border-primary' : 'border-border'}`}>
-              <div className={`text-xs font-mono uppercase tracking-widest mb-1 ${step > i ? 'text-primary' : 'text-muted-foreground'}`}>Step 0{i + 1}</div>
-              <div className={`font-semibold ${step > i ? 'text-foreground' : 'text-muted-foreground'}`}>{s.title}</div>
+            <div key={i} className={`border-t-2 pt-3 sm:pt-4 transition-colors ${step > i ? 'border-primary' : 'border-border'}`}>
+              <div className={`text-[0.6rem] sm:text-xs font-mono uppercase tracking-widest mb-1 ${step > i ? 'text-primary' : 'text-muted-foreground'}`}>Step 0{i + 1}</div>
+              <div className={`text-xs sm:text-sm font-semibold truncate ${step > i ? 'text-foreground' : 'text-muted-foreground'}`}>{s.title}</div>
             </div>
           ))}
         </div>
 
         <Card className="shadow-xl bg-card border-border">
-          <CardHeader>
-            <CardTitle>{steps[step-1].title}</CardTitle>
-            <CardDescription>{steps[step-1].desc}</CardDescription>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">{steps[step-1].title}</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">{steps[step-1].desc}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             {step === 1 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-mono tracking-widest uppercase text-muted-foreground">Legal Entity Name</label>
                     <Input placeholder="Acme Trading LLC" />

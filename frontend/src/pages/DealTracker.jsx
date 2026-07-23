@@ -79,15 +79,15 @@ export default function DealTracker() {
   const currentStep = order.stage || 3;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans p-6">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans p-4 sm:p-6">
       <div className="max-w-5xl mx-auto w-full">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>â† Back to Dashboard</Button>
-          <h1 className="text-2xl font-heading font-semibold">Deal Lifecycle: {id.substring(0,8)}...</h1>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 sm:mb-8">
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>← Back to Dashboard</Button>
+          <h1 className="text-xl sm:text-2xl font-heading font-semibold">Deal Lifecycle: {id.substring(0,8)}...</h1>
           {currentStep === 5 ? (
-             <Badge className="ml-auto bg-emerald-500/20 text-emerald-600 border-emerald-500/50">DELIVERED</Badge>
+             <Badge className="sm:ml-auto bg-emerald-500/20 text-emerald-600 border-emerald-500/50">DELIVERED</Badge>
           ) : (
-             <Badge className="ml-auto bg-blue-500/20 text-blue-500 border-blue-500/50">IN PROGRESS</Badge>
+             <Badge className="sm:ml-auto bg-blue-500/20 text-blue-500 border-blue-500/50">IN PROGRESS</Badge>
           )}
         </div>
 

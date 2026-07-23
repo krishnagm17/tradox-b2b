@@ -60,7 +60,10 @@ export default function Sidebar() {
           return (
             <button
               key={item.name}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                navigate(item.path);
+                setIsOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
                 isActive
                   ? "bg-primary/10 text-primary"
