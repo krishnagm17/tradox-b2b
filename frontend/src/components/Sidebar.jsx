@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User, Menu, X } from "lucide-react";
+import { Home, LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User, Menu, X } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 
@@ -10,6 +10,7 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
+    { name: "Home Page", path: "/", icon: <Home className="w-5 h-5" /> },
     { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: "Inbox & Negotiations", path: "/inbox", icon: <Inbox className="w-5 h-5" /> },
     { name: "Live Board", path: "/live-board", icon: <FileText className="w-5 h-5" /> },
@@ -47,8 +48,9 @@ export default function Sidebar() {
       <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-brand-navy border-r border-slate-800 flex flex-col shrink-0 z-[50] transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         {/* Logo Area */}
         <div 
-          onClick={() => { navigate("/dashboard"); setIsOpen(false); }}
+          onClick={() => { navigate("/"); setIsOpen(false); }}
           className="h-16 flex items-center justify-between px-6 border-b border-slate-800 shrink-0 cursor-pointer hover:bg-slate-800/50 transition-colors"
+          title="Return to Home Page"
         >
           <div className="font-cinzel text-lg text-white tracking-[0.08em] leading-none uppercase">
             <span className="text-[1.3em] text-emerald-400 font-bold">T</span>radox <span className="text-[1.3em] text-emerald-400 font-bold">B2B</span>

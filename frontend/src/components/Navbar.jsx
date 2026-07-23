@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare } from "lucide-react";
+import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare, Home } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { COMMODITIES } from "../utils/constants";
@@ -129,7 +129,7 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
         }`}
       >
         {/* Left: Logo */}
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")} title="Return to Home Page">
           <div className="flex items-center justify-center w-8 h-8 border border-primary/30 bg-primary/10 rounded-md">
             <span className="text-primary font-heading font-medium text-sm">T</span>
           </div>
@@ -147,7 +147,16 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
         )}
 
         {/* Right: Auth Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-white transition-all text-xs font-semibold shadow-sm"
+            title="Return to Home Page"
+          >
+            <Home className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="hidden sm:inline">Home</span>
+          </button>
+
           {user && !loading && (
             <button 
               onClick={() => navigate("/inbox")}
@@ -198,6 +207,14 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                   )}
 
                   <div className="p-2 space-y-1">
+                    {/* Home Page */}
+                    <button 
+                      onClick={() => { setShowDropdown(false); navigate("/"); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
+                    >
+                      <Home className="w-4 h-4 text-emerald-400" />
+                      Home Page
+                    </button>
                     {/* Profile */}
                     <button 
                       onClick={() => { setShowDropdown(false); navigate("/profile"); }}
