@@ -130,16 +130,16 @@ class NegotiationRoom(BaseModel):
     updatedAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
 
 class OfferCard(BaseModel):
-    price: float
-    quantity: float
-    moq: float
-    delivery_date: str
-    packaging: str
-    payment_terms: str
-    incoterms: str
-    inspection: str
-    destination: str
-    validity_hours: int
+    price: float = 0.0
+    quantity: float = 0.0
+    moq: float = 1.0
+    delivery_date: str = "TBD"
+    packaging: str = "Standard"
+    payment_terms: str = "LC at sight"
+    incoterms: str = "FOB"
+    inspection: str = "SGS / Independent"
+    destination: str = "Any"
+    validity_hours: int = 24
     remarks: Optional[str] = None
 
 class OfferVersion(BaseModel):

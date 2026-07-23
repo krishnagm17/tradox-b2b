@@ -188,10 +188,12 @@ export default function NegotiationRoom() {
       
       const payload = {
         ...offerData,
-        price: parseFloat(offerData.price),
-        quantity: parseFloat(offerData.quantity),
-        moq: parseFloat(offerData.moq),
-        validity_hours: parseInt(offerData.validity_hours)
+        price: parseFloat(offerData.price) || 0,
+        quantity: parseFloat(offerData.quantity) || 0,
+        moq: parseFloat(offerData.moq) || 1,
+        validity_hours: parseInt(offerData.validity_hours) || 24,
+        incoterms: offerData.incoterms || offerData.incoterm || "FOB",
+        destination: offerData.destination || offerData.destination_port || "Any"
       };
 
       const res = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/offers`, {
@@ -204,10 +206,17 @@ export default function NegotiationRoom() {
       });
 
       if (res.ok) {
+        const newOfferMsg = await res.json();
+        setMessages(prev => {
+          if (prev.some(m => m.id === newOfferMsg.id)) return prev;
+          return [...prev, newOfferMsg];
+        });
         setShowOfferForm(false);
+      } else {
+        console.error("Offer submission error:", await res.text());
       }
     } catch (err) {
-      console.error(err);
+      console.error("Submit offer catch:", err);
     }
   };
 

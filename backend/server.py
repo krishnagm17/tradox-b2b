@@ -276,12 +276,49 @@ async def submit_offer(room_id: str, data: dict, token_data: dict = Depends(veri
     if m.data:
         next_ver = len(m.data) + 1
         
-    card = OfferCard(**data)
+    try:
+        price = float(data.get("price") or 0)
+    except Exception:
+        price = 0.0
+
+    try:
+        quantity = float(data.get("quantity") or 0)
+    except Exception:
+        quantity = 0.0
+
+    try:
+        moq = float(data.get("moq") or 1)
+    except Exception:
+        moq = 1.0
+
+    try:
+        validity_hours = int(data.get("validity_hours") or 24)
+    except Exception:
+        validity_hours = 24
+
+    card = OfferCard(
+        price=price,
+        quantity=quantity,
+        moq=moq,
+        delivery_date=str(data.get("delivery_date") or data.get("deliveryDate") or "TBD"),
+        packaging=str(data.get("packaging") or "Standard"),
+        payment_terms=str(data.get("payment_terms") or data.get("paymentTerms") or "LC at sight"),
+        incoterms=str(data.get("incoterms") or data.get("incoterm") or "FOB"),
+        inspection=str(data.get("inspection") or "SGS / Independent"),
+        destination=str(data.get("destination") or data.get("destination_port") or "Any"),
+        validity_hours=validity_hours,
+        remarks=str(data.get("remarks") or data.get("specifications") or "")
+    )
     ov = OfferVersion(version=next_ver, created_by=uid, timestamp=datetime.datetime.utcnow().isoformat() + "Z", card=card)
     
     msg = Message(room_id=room_id, sender_id=uid, content=f"Sent Offer v{next_ver}", offer_version=ov)
     db.table("messages").insert({"id": msg.id, "room_id": msg.room_id, "sender_id": msg.sender_id, "content": msg.content, "offer_version": msg.offer_version.model_dump() if msg.offer_version else None, "timestamp": msg.timestamp}).execute()
     
+    try:
+        await manager.broadcast_to_room(room_id, {"type": "chat", "message": msg.model_dump()})
+    except Exception as e:
+        print("WebSocket broadcast error:", e)
+
     return msg
 
 @app.websocket("/ws/negotiations/{room_id}")
