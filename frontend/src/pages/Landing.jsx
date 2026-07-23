@@ -9,6 +9,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState(null);
+  const [stats, setStats] = useState({ users_count: 1, companies_count: 1, products_count: 0, rfqs_count: 0, total_lots: 0 });
   const [marketData, setMarketData] = useState({
     gold: { price: 2450.50, change: 0.5 },
     wheat: { price: 680.20, change: -1.2 },
@@ -30,6 +31,16 @@ export default function Landing() {
       setUser(u);
     });
 
+    // Fetch real platform statistics from database
+    fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/stats")
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.companies_count === "number") {
+          setStats(data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch live stats", err));
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
       unsub();
@@ -43,29 +54,36 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans selection:bg-emerald-500/20">
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-emerald-500/30">
       
-      {/* Top Header Navbar */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-md border-b border-slate-200' : 'bg-white/80 backdrop-blur-sm border-b border-slate-100'}`}>
-        <div className="max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20">
+      {/* Navigation Header */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? "bg-white/95 backdrop-blur-md shadow-md border-b border-slate-200 py-3" : "bg-white border-b border-slate-200 py-4"
+      }`}>
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
-          {/* Logo */}
+          {/* Brand Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-600/20">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-emerald-600/30">
               T
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-heading font-bold text-slate-900 tracking-tight">Tradox<span className="text-emerald-600">B2B</span></span>
-              <span className="text-[0.65rem] font-mono tracking-wider text-slate-500 uppercase">Global Wholesale Trade</span>
+              <span className="text-xl font-heading font-extrabold text-slate-900 tracking-tight leading-none">
+                Tradox<span className="text-emerald-600">B2B</span>
+              </span>
+              <span className="text-[0.6rem] font-mono tracking-widest text-slate-500 uppercase font-semibold">
+                Direct Bulk Trade
+              </span>
             </div>
           </div>
 
-          {/* Nav Links */}
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#how-it-works" className="text-sm text-slate-600 hover:text-slate-900 font-semibold transition-colors">How It Works</a>
-            <button onClick={() => navigate("/live-board")} className="text-sm text-slate-600 hover:text-slate-900 font-semibold transition-colors">Live Market</button>
-            <a href="#commodities" className="text-sm text-slate-600 hover:text-slate-900 font-semibold transition-colors">Commodities</a>
-            <a href="#why-us" className="text-sm text-slate-600 hover:text-slate-900 font-semibold transition-colors">Why Tradox</a>
+          {/* Center Links */}
+          <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+            <a href="#how-it-works" className="hover:text-emerald-600 transition-colors">How It Works</a>
+            <a href="#why-us" className="hover:text-emerald-600 transition-colors">Why TradoxB2B</a>
+            <a href="#commodities" className="hover:text-emerald-600 transition-colors">Commodities</a>
+            <button onClick={() => navigate("/live-board")} className="hover:text-emerald-600 transition-colors">Live Market Board</button>
+            <button onClick={() => navigate("/trade-tools")} className="hover:text-emerald-600 transition-colors">Trade Tools</button>
           </div>
 
           {/* Action Buttons */}
@@ -109,10 +127,10 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-24 bg-gradient-to-b from-slate-100 via-emerald-50/30 to-slate-50 border-b border-slate-200 overflow-hidden">
+      <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-24 bg-gradient-to-b from-slate-200 via-slate-100 to-emerald-100/50 border-b border-slate-300 overflow-hidden">
         {/* Decorative Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000005_1px,transparent_1px),linear-gradient(to_bottom,#00000005_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000008_1px,transparent_1px),linear-gradient(to_bottom,#00000008_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/15 blur-[120px] rounded-full pointer-events-none" />
 
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           
@@ -150,20 +168,20 @@ export default function Landing() {
             </button>
           </div>
 
-          {/* Social Proof Bar */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
+          {/* Social Proof Bar — Real Database Numbers */}
+          <div className="bg-white/95 backdrop-blur-md border border-slate-300/80 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="flex flex-col items-center">
-                <span className="text-3xl font-heading font-extrabold text-slate-900">140+</span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Countries Connected</span>
-              </div>
-              <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-200 py-4 sm:py-0">
-                <span className="text-3xl font-heading font-extrabold text-slate-900">18,000+</span>
+                <span className="text-3xl font-heading font-extrabold text-slate-900">{stats.companies_count}</span>
                 <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Verified Businesses</span>
               </div>
+              <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-200 py-4 sm:py-0">
+                <span className="text-3xl font-heading font-extrabold text-slate-900">{stats.total_lots}</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Active Trade Lots</span>
+              </div>
               <div className="flex flex-col items-center">
-                <span className="text-3xl font-heading font-extrabold text-slate-900">$4.8 Billion</span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Total Trade Volume</span>
+                <span className="text-3xl font-heading font-extrabold text-slate-900">{stats.users_count}</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Registered Traders</span>
               </div>
             </div>
           </div>

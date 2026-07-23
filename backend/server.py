@@ -43,6 +43,38 @@ def get_db():
 def read_root():
     return {"message": "TradoxB2B API is running on Supabase"}
 
+@app.get("/api/stats")
+def get_platform_stats():
+    db = get_db()
+    try:
+        u_res = db.table("users").select("id").execute()
+        user_count = len(u_res.data) if u_res.data else 1
+
+        c_res = db.table("companies").select("id").execute()
+        comp_count = len(c_res.data) if c_res.data else 1
+
+        p_res = db.table("products").select("id").execute()
+        prod_count = len(p_res.data) if p_res.data else 0
+
+        r_res = db.table("rfqs").select("id").execute()
+        rfq_count = len(r_res.data) if r_res.data else 0
+
+        return {
+            "users_count": user_count,
+            "companies_count": comp_count,
+            "products_count": prod_count,
+            "rfqs_count": rfq_count,
+            "total_lots": prod_count + rfq_count
+        }
+    except Exception as e:
+        return {
+            "users_count": 1,
+            "companies_count": 1,
+            "products_count": 0,
+            "rfqs_count": 0,
+            "total_lots": 0
+        }
+
 @app.post("/api/users", response_model=User)
 async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_token)):
     firebase_uid = user_data.firebase_uid
