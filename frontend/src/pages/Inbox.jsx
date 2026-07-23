@@ -5,10 +5,7 @@ import {
   Package, ShoppingCart, Building2, CheckCircle2, XCircle,
   ArrowLeft, Bell
 } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
-import Navbar from "../components/Navbar";
-import { auth } from "../config/firebase";
-import { API_BASE } from "../utils/api";
+import Sidebar from "../components/Sidebar";
 
 export default function Inbox() {
   const navigate = useNavigate();
@@ -158,16 +155,18 @@ export default function Inbox() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-foreground font-sans flex flex-col">
-      <Navbar
-        bgColor="bg-white border-b border-slate-200"
-        centerContent={
-          <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm">
-            <MessageSquare className="w-4 h-4" />
-            Negotiations Inbox
-          </div>
-        }
-      />
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <Navbar
+          bgColor="bg-white border-b border-slate-200"
+          centerContent={
+            <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm">
+              <MessageSquare className="w-4 h-4 text-emerald-600" />
+              Negotiations Inbox
+            </div>
+          }
+        />
 
       <main className="flex-1 px-4 sm:px-8 lg:px-12 pt-8 pb-24 max-w-[900px] mx-auto w-full">
         {/* Header */}
@@ -303,6 +302,7 @@ export default function Inbox() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }

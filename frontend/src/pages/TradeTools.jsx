@@ -142,21 +142,23 @@ export default function TradeTools() {
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6 font-sans">
-      <div className="max-w-5xl mx-auto w-full">
-        {/* Back Button + Title */}
-        <div className="flex items-center gap-4 mb-6 sm:mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-300 px-3 py-2 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-heading font-bold text-slate-900">Trade Utility Tools</h1>
-            <p className="text-xs text-slate-500">Practical tools for international trade calculations</p>
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-4 sm:p-6">
+        <div className="max-w-5xl mx-auto w-full">
+          {/* Back Button + Title */}
+          <div className="flex items-center gap-4 mb-6 sm:mb-8">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-300 px-3 py-2 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-heading font-bold text-slate-900">Trade Utility Tools</h1>
+              <p className="text-xs text-slate-500">Practical tools for international trade calculations</p>
+            </div>
           </div>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
 
@@ -384,6 +386,7 @@ export default function TradeTools() {
             Contact Support →
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

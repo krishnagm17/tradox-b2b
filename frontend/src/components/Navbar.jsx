@@ -147,14 +147,15 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
         )}
 
         {/* Right: Auth Controls */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           {user && !loading && (
             <button 
               onClick={() => navigate("/inbox")}
-              className="relative text-muted-foreground hover:text-white transition-colors flex items-center justify-center w-10 h-10 rounded-full border border-border bg-white/5 hover:bg-white/10"
-              title="Inbox"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-white transition-all text-xs font-semibold shadow-sm"
+              title="View Inbox & Negotiations"
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="hidden sm:inline">Inbox</span>
             </button>
           )}
           
@@ -164,31 +165,35 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center justify-center w-10 h-10 rounded-full border border-primary/30 bg-primary/10 hover:bg-primary/20 transition-colors focus:outline-none"
+                className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-emerald-500 bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors focus:outline-none shadow-sm"
               >
-                <span className="text-primary font-medium font-heading">{getInitials(dbUser?.full_name, user.email)}</span>
+                <span className="text-emerald-400 font-bold text-sm font-heading">{getInitials(dbUser?.full_name, user.email)}</span>
               </button>
 
               {/* Dropdown Menu */}
               {showDropdown && (
-                <div className="absolute right-0 mt-3 w-64 bg-brand-navy text-white border border-border rounded-md shadow-xl z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="p-4 border-b border-border">
-                    <p className="text-sm font-medium text-white truncate">{user.email}</p>
-                    <p className="text-xs text-primary font-mono mt-1">
-                      {dbUser ? dbUser.role : "TRADER"}
-                    </p>
+                <div className="absolute right-0 mt-3 w-64 bg-slate-900 text-slate-100 border border-slate-700 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+                  <div className="p-4 border-b border-slate-800 bg-slate-950/60">
+                    <p className="text-sm font-bold text-white truncate mb-1">{user.email}</p>
+                    <span className="text-[0.65rem] font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full inline-block">
+                      {dbUser ? (dbUser.role || "TRADER") : "TRADER"}
+                    </span>
                   </div>
                   
                   {dbUser && (
-                    <div className="p-4 border-b border-border space-y-2 text-sm text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span className="text-xs uppercase font-mono tracking-wider">Company</span>
-                        <span className="text-white text-right max-w-[120px] truncate">{dbUser.company_name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-xs uppercase font-mono tracking-wider">Region</span>
-                        <span className="text-white text-right">{dbUser.country}</span>
-                      </div>
+                    <div className="p-3 border-b border-slate-800 space-y-1.5 text-xs text-slate-300">
+                      {dbUser.company_name && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 uppercase font-mono tracking-wider text-[0.65rem]">Company</span>
+                          <span className="text-slate-100 font-medium truncate max-w-[120px]">{dbUser.company_name}</span>
+                        </div>
+                      )}
+                      {dbUser.country && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 uppercase font-mono tracking-wider text-[0.65rem]">Region</span>
+                          <span className="text-slate-100 font-medium">{dbUser.country}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -196,34 +201,34 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                     {/* Profile */}
                     <button 
                       onClick={() => { setShowDropdown(false); navigate("/profile"); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
                     >
-                      <User className="w-4 h-4" />
+                      <User className="w-4 h-4 text-emerald-400" />
                       My Profile
                     </button>
                     {/* Settings */}
                     <button 
                       onClick={() => { setShowDropdown(false); navigate("/settings"); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
                     >
-                      <Edit3 className="w-4 h-4" />
+                      <Edit3 className="w-4 h-4 text-emerald-400" />
                       Settings
                     </button>
                     {/* Company Dashboard */}
                     <button 
                       onClick={() => { setShowDropdown(false); navigate("/dashboard"); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
                     >
-                      <Inbox className="w-4 h-4" />
+                      <Inbox className="w-4 h-4 text-emerald-400" />
                       Company Dashboard
                     </button>
                     {/* Sign Out */}
-                    <div className="pt-1 mt-1 border-t border-border/50">
+                    <div className="pt-1 mt-1 border-t border-slate-800">
                       <button 
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-xl transition-colors font-medium"
                       >
-                        <LogOut className="w-4 h-4" />
+                        <LogOut className="w-4 h-4 text-rose-400" />
                         Sign Out
                       </button>
                     </div>

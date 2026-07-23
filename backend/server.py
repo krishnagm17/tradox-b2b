@@ -135,6 +135,8 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
         "description": product.description,
         "category": product.category,
         "price": product.price,
+        "quantity": product.quantity,
+        "country": product.country,
         "moq": product.moq,
         "createdAt": product.createdAt
     }).execute()
@@ -147,6 +149,30 @@ async def get_products():
     out = []
     for p in res.data:
         out.append(Product(id=p["id"], companyId=p["companyId"], createdBy="", category=p.get("category",""), name=p.get("title",""), description=p.get("description"), price=p.get("price",0), quantity=0, country="", moq=p.get("moq",0)))
+    return out
+
+@app.get("/api/products/me", response_model=List[Product])
+async def get_my_products(token_data: dict = Depends(verify_token)):
+    db = get_db()
+    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    c_id = res.data[0]["companyId"]
+    p_res = db.table("products").select("*").eq("companyId", c_id).execute()
+    out = []
+    for p in p_res.data:
+        out.append(Product(
+            id=p["id"],
+            companyId=p["companyId"],
+            createdBy=token_data.get("uid"),
+            category=p.get("category","Agriculture"),
+            name=p.get("title",""),
+            description=p.get("description"),
+            price=float(p.get("price", 0)),
+            quantity=float(p.get("quantity", 100)),
+            country=p.get("country", "India"),
+            moq=float(p.get("moq", 10))
+        ))
     return out
 
 @app.post("/api/rfqs", response_model=RFQ)
@@ -167,6 +193,30 @@ async def create_rfq(rfq_data: RFQCreate, token_data: dict = Depends(verify_toke
         "createdAt": rfq.createdAt
     }).execute()
     return rfq
+
+@app.get("/api/rfqs/me", response_model=List[RFQ])
+async def get_my_rfqs(token_data: dict = Depends(verify_token)):
+    db = get_db()
+    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    c_id = res.data[0]["companyId"]
+    r_res = db.table("rfqs").select("*").eq("buyerCompanyId", c_id).execute()
+    out = []
+    for r in r_res.data:
+        out.append(RFQ(
+            id=r["id"],
+            companyId=r["buyerCompanyId"],
+            createdBy=token_data.get("uid"),
+            product=r.get("title",""),
+            category=r.get("category","Agriculture"),
+            quantity=float(r.get("targetQuantity", 0)),
+            targetPrice=float(r.get("targetPrice")) if r.get("targetPrice") else None,
+            destinationCountry=r.get("destinationCountry", "Global"),
+            deliveryDate=r.get("deliveryDate", "Immediate"),
+            description=r.get("description")
+        ))
+    return out
 
 @app.get("/api/rfqs", response_model=List[RFQ])
 async def get_rfqs():

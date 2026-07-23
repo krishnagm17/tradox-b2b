@@ -11,6 +11,8 @@ import { toast } from "sonner";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
+import Sidebar from "../components/Sidebar";
+
 export default function Profile() {
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
@@ -103,8 +105,11 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+      <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+        </div>
       </div>
     );
   }
@@ -115,7 +120,9 @@ export default function Profile() {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
       {/* Top bar */}
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex items-center gap-4 sticky top-0 z-20">
         <button
@@ -305,6 +312,7 @@ export default function Profile() {
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   );

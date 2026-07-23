@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
-import { Activity, ShieldCheck, Lock, Globe, Percent, Building2, Package, ArrowRight, CheckCircle2, UserCheck, MessageSquare, Truck, HelpCircle } from "lucide-react";
+import { Activity, ShieldCheck, Lock, Globe, Percent, Building2, Package, ArrowRight, CheckCircle2, UserCheck, MessageSquare, Truck, HelpCircle, User, LayoutDashboard } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../config/firebase";
 
 export default function Landing() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState(null);
   const [marketData, setMarketData] = useState({
     gold: { price: 2450.50, change: 0.5 },
     wheat: { price: 680.20, change: -1.2 },
@@ -22,7 +25,15 @@ export default function Landing() {
       setScrolled(window.scrollY > 40);
     };
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      unsub();
+    };
   }, []);
 
   const renderTickerChange = (change) => {
@@ -59,18 +70,39 @@ export default function Landing() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => navigate("/login")} 
-              className="text-sm font-semibold text-slate-700 hover:text-slate-900 px-4 py-2 rounded-lg transition-colors"
-            >
-              Log In
-            </button>
-            <button 
-              onClick={() => navigate("/register")} 
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-bold rounded-lg transition-all shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95"
-            >
-              Get Started Free
-            </button>
+            {user ? (
+              <>
+                <button 
+                  onClick={() => navigate("/dashboard")} 
+                  className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors"
+                >
+                  <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                  Dashboard
+                </button>
+                <button 
+                  onClick={() => navigate("/profile")} 
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95"
+                >
+                  <User className="w-4 h-4" />
+                  My Profile
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => navigate("/login")} 
+                  className="text-sm font-semibold text-slate-700 hover:text-slate-900 px-4 py-2 rounded-lg transition-colors"
+                >
+                  Log In
+                </button>
+                <button 
+                  onClick={() => navigate("/register")} 
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-bold rounded-lg transition-all shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95"
+                >
+                  Get Started Free
+                </button>
+              </>
+            )}
           </div>
 
         </div>

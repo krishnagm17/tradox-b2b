@@ -5,6 +5,8 @@ import Navbar from "../components/Navbar";
 import { Button } from "../components/ui/Button";
 import { auth } from "../config/firebase";
 
+import Sidebar from "../components/Sidebar";
+
 export default function LiveBoard() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -61,53 +63,46 @@ export default function LiveBoard() {
 
   const fetchBoardData = async () => {
     try {
-      const [prodRes, rfqRes] = await Promise.all([
-        fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/products"),
-        fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/rfqs")
-      ]);
+      const resProducts = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/products");
+      const resRfqs = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/rfqs");
       
-      let allItems = [];
+      let products = [];
+      let rfqs = [];
+      
+      if (resProducts.ok) products = await resProducts.json();
+      if (resRfqs.ok) rfqs = await resRfqs.json();
+      
+      const normalizedProducts = products.map(p => ({
+        id: p.id,
+        type: 'SELL',
+        category: p.category || 'General',
+        commodity: p.name || 'Commodity Lot',
+        quantity: `${p.quantity || 100} ${p.unit || 'MT'}`,
+        origin: p.country || 'Global',
+        destination: 'Worldwide',
+        price: `$${p.price || 0}`,
+        postedBy: `Supplier (${(p.companyId || 'Co').substring(0, 8)})`,
+        companyId: p.companyId,
+        incoterms: p.deliveryTerms || 'FOB',
+        date: p.createdAt || new Date().toISOString()
+      }));
 
-      if (prodRes.ok) {
-        const products = await prodRes.json();
-        const mappedProducts = products.map(p => ({
-          id: p.id,
-          type: 'SELL',
-          commodity: p.name,
-          companyId: p.companyId,
-          price: `${p.price} ${p.currency}`,
-          origin: p.country,
-          destination: 'Any',
-          volume: `${p.quantity} ${p.unit}`,
-          incoterm: p.deliveryTerms,
-          status: p.status,
-          createdAt: new Date(p.createdAt)
-        }));
-        allItems = [...allItems, ...mappedProducts];
-      }
+      const normalizedRfqs = rfqs.map(r => ({
+        id: r.id,
+        type: 'BUY',
+        category: r.category || 'General',
+        commodity: r.product || 'Buying Request',
+        quantity: `${r.quantity || 100} ${r.unit || 'MT'}`,
+        origin: 'Any Origin',
+        destination: r.destinationCountry || 'Global',
+        price: r.targetPrice ? `$${r.targetPrice}` : 'Open Offer',
+        postedBy: `Buyer (${(r.companyId || 'Co').substring(0, 8)})`,
+        companyId: r.companyId,
+        incoterms: 'CIF / FOB',
+        date: r.createdAt || new Date().toISOString()
+      }));
 
-      if (rfqRes.ok) {
-        const rfqs = await rfqRes.json();
-        const mappedRfqs = rfqs.map(r => ({
-          id: r.id,
-          type: 'BUY',
-          commodity: r.product,
-          companyId: r.companyId,
-          price: r.targetPrice ? r.targetPrice.toString() : 'Negotiable',
-          origin: 'Any',
-          destination: r.destinationCountry,
-          volume: `${r.quantity} ${r.unit}`,
-          incoterm: 'FOB/CIF',
-          status: r.status,
-          createdAt: new Date(r.createdAt)
-        }));
-        allItems = [...allItems, ...mappedRfqs];
-      }
-
-      // Sort by newest
-      allItems.sort((a, b) => b.createdAt - a.createdAt);
-      setItems(allItems);
-
+      setItems([...normalizedProducts, ...normalizedRfqs]);
     } catch (err) {
       console.error("Failed to fetch board data", err);
     }
@@ -138,13 +133,12 @@ export default function LiveBoard() {
       
       if (res.ok) {
         const room = await res.json();
-        console.log("RECEIVED ROOM FROM POST:", room);
         setBidSuccess(true);
         setTimeout(() => {
+          setSelectedItem(null);
+          setBidSuccess(false);
           navigate(`/negotiation/${room.id}`);
         }, 1500);
-      } else {
-        console.error("Failed to initiate negotiation", await res.text());
       }
     } catch (err) {
       console.error("Negotiation error:", err);
@@ -154,18 +148,20 @@ export default function LiveBoard() {
   };
 
   return (
-    <div className="min-h-screen bg-muted text-foreground font-sans selection:bg-primary/30 flex flex-col">
-      <Navbar 
-        centerContent={
-          <div className="flex items-center gap-2 text-primary font-mono text-sm">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
-              <circle cx="12" cy="12" r="2"></circle>
-              <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path>
-            </svg>
-            Live Board
-          </div>
-        }
-      />
+    <div className="flex h-screen bg-muted text-foreground overflow-hidden font-sans selection:bg-primary/30">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <Navbar 
+          centerContent={
+            <div className="flex items-center gap-2 text-primary font-mono text-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
+                <circle cx="12" cy="12" r="2"></circle>
+                <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path>
+              </svg>
+              Live Board
+            </div>
+          }
+        />
 
       <main className="flex-1 px-4 sm:px-8 lg:px-16 pt-6 sm:pt-12 pb-24 max-w-[1400px] mx-auto w-full relative">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-12">
@@ -434,6 +430,7 @@ export default function LiveBoard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
