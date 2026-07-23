@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { API_BASE, WS_BASE } from "../utils/api";
 
@@ -24,10 +25,15 @@ export default function NegotiationRoom() {
   });
 
   useEffect(() => {
-    fetchRoomAndMessages();
-    setupWebSocket();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        fetchRoomAndMessages(currentUser);
+        setupWebSocket();
+      }
+    });
 
     return () => {
+      unsubscribe();
       if (ws) ws.close();
     };
   }, [id]);
@@ -36,9 +42,10 @@ export default function NegotiationRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const fetchRoomAndMessages = async () => {
+  const fetchRoomAndMessages = async (currentUser) => {
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const activeUser = currentUser || auth.currentUser;
+      const token = await activeUser?.getIdToken();
       if (!token) return;
 
       const roomRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}`, {

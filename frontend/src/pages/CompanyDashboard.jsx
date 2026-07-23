@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Package, FileText, X, Loader2, ArrowRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { onAuthStateChanged } from "firebase/auth";
 import Sidebar from "../components/Sidebar";
 import { Button } from "../components/ui/Button";
 import { auth } from "../config/firebase";
+import { API_BASE } from "../utils/api";
 
 export default function CompanyDashboard() {
   const navigate = useNavigate();
@@ -29,16 +31,22 @@ export default function CompanyDashboard() {
   });
 
   useEffect(() => {
-    fetchDashboardData();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        fetchDashboardData(currentUser);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (currentUser) => {
     setLoading(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const activeUser = currentUser || auth.currentUser;
+      const token = await activeUser?.getIdToken();
       if (!token) return;
 
-      const rfqRes = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/rfqs/me", {
+      const rfqRes = await fetch(`${API_BASE}/api/rfqs/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (rfqRes.ok) {

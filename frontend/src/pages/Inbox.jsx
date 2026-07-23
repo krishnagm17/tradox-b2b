@@ -1,8 +1,10 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageSquare, ArrowRight, Clock, CheckCircle2 } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import { auth } from "../config/firebase";
+import { API_BASE } from "../utils/api";
 
 export default function Inbox() {
   const navigate = useNavigate();
@@ -10,15 +12,21 @@ export default function Inbox() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRooms();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        fetchRooms(currentUser);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  const fetchRooms = async () => {
+  const fetchRooms = async (currentUser) => {
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const activeUser = currentUser || auth.currentUser;
+      const token = await activeUser?.getIdToken();
       if (!token) return;
 
-      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/negotiations/rooms", {
+      const res = await fetch(`${API_BASE}/api/negotiations/rooms`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
