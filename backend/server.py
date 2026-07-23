@@ -62,7 +62,7 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
         "id": company.id,
         "name": company.companyName,
         "type": company.businessCategory,
-        "verificationStatus": company.verificationStatus,
+        "verificationStatus": company.kybStatus,
         "createdAt": company.createdAt
     }).execute()
     
