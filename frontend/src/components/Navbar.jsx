@@ -5,7 +5,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { COMMODITIES } from "../utils/constants";
 
-export default function Navbar({ isFixed = false, centerContent = null, bgColor = "bg-brand-navy text-white", padding = "px-6" }) {
+export default function Navbar({ isFixed = false, centerContent = null, bgColor = "bg-white border-b border-slate-200 text-slate-900", padding = "px-6" }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
@@ -124,18 +124,18 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
   return (
     <>
       <header 
-        className={`h-[72px] border-b border-border flex items-center justify-between shrink-0 ${bgColor} ${padding} ${
+        className={`h-[72px] border-b flex items-center justify-between shrink-0 ${bgColor} ${padding} ${
           isFixed ? "fixed top-0 w-full z-50 backdrop-blur-md" : ""
         }`}
       >
         {/* Left: Logo */}
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")} title="Return to Home Page">
-          <div className="flex items-center justify-center w-8 h-8 border border-primary/30 bg-primary/10 rounded-md">
-            <span className="text-primary font-heading font-medium text-sm">T</span>
+          <div className="flex items-center justify-center w-8 h-8 border border-emerald-500/30 bg-emerald-500/10 rounded-md">
+            <span className="text-emerald-600 font-heading font-bold text-sm">T</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-heading font-bold tracking-tight leading-tight">Tradox<span className="text-primary">B2B</span></span>
-            <span className="text-[0.55rem] font-mono tracking-[0.2em] text-muted-foreground uppercase leading-none mt-0.5">Global Bulk Trade</span>
+            <span className="text-lg font-heading font-bold tracking-tight leading-tight text-slate-900">Tradox<span className="text-emerald-600">B2B</span></span>
+            <span className="text-[0.55rem] font-mono tracking-[0.2em] text-slate-500 uppercase leading-none mt-0.5">Global Bulk Trade</span>
           </div>
         </div>
 
@@ -150,20 +150,20 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-white transition-all text-xs font-semibold shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 transition-all text-xs font-semibold shadow-sm"
             title="Return to Home Page"
           >
-            <Home className="w-4 h-4 text-emerald-400 shrink-0" />
+            <Home className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="hidden sm:inline">Home</span>
           </button>
 
           {user && !loading && (
             <button 
               onClick={() => navigate("/inbox")}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-100 hover:text-white transition-all text-xs font-semibold shadow-sm"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 transition-all text-xs font-semibold shadow-sm"
               title="View Inbox & Negotiations"
             >
-              <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+              <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
               <span className="hidden sm:inline">Inbox</span>
             </button>
           )}

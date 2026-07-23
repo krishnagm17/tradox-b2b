@@ -148,13 +148,14 @@ export default function LiveBoard() {
   };
 
   return (
-    <div className="flex h-screen bg-muted text-foreground overflow-hidden font-sans selection:bg-primary/30">
+    <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <Navbar 
+          bgColor="bg-white border-b border-slate-200 text-slate-900"
           centerContent={
-            <div className="flex items-center gap-2 text-primary font-mono text-sm">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
+            <div className="flex items-center gap-2 text-emerald-700 font-mono text-sm font-bold">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse text-emerald-600">
                 <circle cx="12" cy="12" r="2"></circle>
                 <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path>
               </svg>
