@@ -93,7 +93,7 @@ async def get_me(token_data: dict = Depends(verify_token)):
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
     u = res.data[0]
-    return User(id=u["id"], firebase_uid=u["firebase_uid"], companyId=u["companyId"], name="User", email=u["email"], role=u["role"])
+    return User(id=u["id"], firebase_uid=u["firebase_uid"], companyId=u["companyId"], name="User", email=u["email"], role=u["role"], kybStatus=u.get("kybStatus", "PENDING"))
 
 @app.get("/api/companies/me", response_model=Company)
 async def get_my_company(token_data: dict = Depends(verify_token)):

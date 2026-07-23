@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Package, FileText, X, Loader2, ArrowRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
@@ -57,7 +57,7 @@ export default function CompanyDashboard() {
       });
       if (userRes.ok) {
         const userData = await userRes.json();
-        setKybStatus(userData.company.kybStatus);
+        setKybStatus(userData.kybStatus || userData.company?.kybStatus || "PENDING");
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data", err);

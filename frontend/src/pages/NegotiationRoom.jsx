@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
 import { auth } from "../config/firebase";
@@ -54,7 +54,7 @@ export default function NegotiationRoom() {
       });
       if (userRes.ok) {
         const userData = await userRes.json();
-        setKybStatus(userData.company.kybStatus);
+        setKybStatus(userData.kybStatus || userData.company?.kybStatus || "PENDING");
       }
     } catch (err) {
       console.error(err);

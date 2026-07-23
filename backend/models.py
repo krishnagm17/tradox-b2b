@@ -28,6 +28,7 @@ class User(BaseModel):
     email: str
     phone: Optional[str] = None
     role: str = "ADMIN" # ADMIN, MEMBER
+    kybStatus: str = "PENDING"
     createdAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
     updatedAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
 
