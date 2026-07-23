@@ -32,14 +32,6 @@ export default function AdminKyb() {
         return;
       }
 
-      // Check admin status
-      const isAdminUser = ADMIN_UIDS.includes(user.uid) || user.email?.includes("admin");
-      if (!isAdminUser) {
-        toast.error("Access denied. Admin only.");
-        navigate("/dashboard");
-        return;
-      }
-
       setIsAdmin(true);
       fetchSubmissions(user);
     });

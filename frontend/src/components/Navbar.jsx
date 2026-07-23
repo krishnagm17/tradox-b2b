@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare, Home } from "lucide-react";
+import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare, Home, Shield } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { COMMODITIES } from "../utils/constants";
@@ -230,6 +230,14 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                     >
                       <Edit3 className="w-4 h-4 text-emerald-400" />
                       Settings
+                    </button>
+                    {/* KYB Approvals */}
+                    <button 
+                      onClick={() => { setShowDropdown(false); navigate("/admin/kyb"); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
+                    >
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                      KYB Approvals
                     </button>
                     {/* Company Dashboard */}
                     <button 

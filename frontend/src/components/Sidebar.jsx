@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User, Menu, X } from "lucide-react";
+import { Home, LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User, Menu, X, Shield } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 
@@ -15,6 +15,7 @@ export default function Sidebar() {
     { name: "Inbox & Negotiations", path: "/inbox", icon: <Inbox className="w-5 h-5" /> },
     { name: "Live Board", path: "/live-board", icon: <FileText className="w-5 h-5" /> },
     { name: "Trade Tools", path: "/trade-tools", icon: <Package className="w-5 h-5" /> },
+    { name: "KYB Approvals", path: "/admin/kyb", icon: <Shield className="w-5 h-5" /> },
   ];
 
   const handleSignOut = async () => {
