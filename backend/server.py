@@ -244,6 +244,28 @@ async def get_messages(room_id: str, token_data: dict = Depends(verify_token)):
         out.append(Message(id=x["id"], room_id=x["room_id"], sender_id=x["sender_id"], content=x.get("content"), offer_version=x.get("offer_version"), timestamp=x.get("timestamp")))
     return out
 
+@app.post("/api/negotiations/rooms/{room_id}/messages", response_model=Message)
+async def send_room_message(room_id: str, data: dict, token_data: dict = Depends(verify_token)):
+    db = get_db()
+    uid = token_data.get("uid")
+    content = data.get("content", "")
+    
+    msg = Message(room_id=room_id, sender_id=uid, content=content)
+    db.table("messages").insert({
+        "id": msg.id,
+        "room_id": msg.room_id,
+        "sender_id": msg.sender_id,
+        "content": msg.content,
+        "timestamp": msg.timestamp
+    }).execute()
+    
+    try:
+        await manager.broadcast_to_room(room_id, {"type": "chat", "message": msg.model_dump()})
+    except Exception as e:
+        print("WebSocket broadcast error:", e)
+        
+    return msg
+
 @app.post("/api/negotiations/rooms/{room_id}/offers")
 async def submit_offer(room_id: str, data: dict, token_data: dict = Depends(verify_token)):
     db = get_db()

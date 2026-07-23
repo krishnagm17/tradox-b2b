@@ -82,18 +82,58 @@ export default function NegotiationRoom() {
     setWs(socket);
   };
 
-  const sendMessage = (e) => {
+  const sendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !ws) return;
+    if (!newMessage.trim()) return;
 
-    const payload = {
-      type: "chat",
-      sender_id: auth.currentUser?.uid,
-      content: newMessage.trim()
-    };
-
-    ws.send(JSON.stringify(payload));
+    const content = newMessage.trim();
     setNewMessage("");
+
+    // Optimistically add message to UI
+    const tempMsg = {
+      id: "temp-" + Date.now(),
+      room_id: id,
+      sender_id: auth.currentUser?.uid,
+      content: content,
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, tempMsg]);
+
+    // If WebSocket is open, send via WebSocket
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({
+          type: "chat",
+          sender_id: auth.currentUser?.uid,
+          content: content
+        }));
+        return;
+      } catch (err) {
+        console.error("WS send failed, using HTTP fallback", err);
+      }
+    }
+
+    // Fallback to HTTP POST
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+
+      const res = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: content })
+      });
+
+      if (res.ok) {
+        const savedMsg = await res.json();
+        setMessages(prev => prev.map(m => m.id === tempMsg.id ? savedMsg : m));
+      }
+    } catch (err) {
+      console.error("HTTP message post failed:", err);
+    }
   };
 
   const handleTyping = () => {
