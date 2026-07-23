@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
 import { auth } from "../config/firebase";
+import { API_BASE, WS_BASE } from "../utils/api";
 
 export default function NegotiationRoom() {
   const { room_id: id } = useParams();
@@ -18,7 +19,8 @@ export default function NegotiationRoom() {
   const [showOfferForm, setShowOfferForm] = useState(false);
   const [offerData, setOfferData] = useState({
     price: "", quantity: "", moq: "", delivery_date: "", packaging: "",
-    payment_terms: "LC at sight", incoterms: "FOB", inspection: "SGS", destination: "", validity_hours: 48, remarks: ""
+    incoterm: "FOB", payment_terms: "LC at sight", validity_hours: "24",
+    specifications: "", destination_port: ""
   });
 
   useEffect(() => {
@@ -39,17 +41,17 @@ export default function NegotiationRoom() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
 
-      const roomRes = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}`, {
+      const roomRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (roomRes.ok) setRoom(await roomRes.json());
 
-      const msgRes = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}/messages`, {
+      const msgRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/messages`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (msgRes.ok) setMessages(await msgRes.json());
 
-      const userRes = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
+      const userRes = await fetch(`${API_BASE}/api/users/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (userRes.ok) {
@@ -62,7 +64,7 @@ export default function NegotiationRoom() {
   };
 
   const setupWebSocket = () => {
-    const socket = new WebSocket(`ws://localhost:8000/ws/negotiations/${id}`);
+    const socket = new WebSocket(`${WS_BASE}/ws/negotiations/${id}`);
     
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -117,7 +119,7 @@ export default function NegotiationRoom() {
         validity_hours: parseInt(offerData.validity_hours)
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}/offers`, {
+      const res = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/offers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,7 +141,7 @@ export default function NegotiationRoom() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/negotiations/rooms/${id}/accept`, {
+      const res = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/accept`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
