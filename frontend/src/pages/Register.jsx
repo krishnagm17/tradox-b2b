@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, ArrowRight, CheckCircle2, AlertCircle, ShieldCheck, Globe } from "lucide-react";
 import { Button } from "../components/ui/Button";
@@ -10,6 +10,8 @@ import {
   linkWithPhoneNumber
 } from "firebase/auth";
 
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+
 export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -17,11 +19,11 @@ export default function Register() {
   // Form State
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(auth.currentUser?.email || "");
   const [phone, setPhone] = useState("");
   const [country, setCountry] = useState("");
   const [password, setPassword] = useState("");
-  
+
   // New Company Fields
   const [businessCategory, setBusinessCategory] = useState("Trading Company");
   const [gst, setGst] = useState("");
@@ -39,18 +41,29 @@ export default function Register() {
 
   const handleCreateAccount = async () => {
     setErrorMsg("");
-    if (!email || !password || !phone || !companyName || !fullName || !country || !address) {
+    if (!email || (!password && !auth.currentUser) || !companyName || !fullName || !country || !address) {
       setErrorMsg("Please fill in all required fields.");
       return;
     }
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(userCredential.user);
-      setStep(2);
+      if (auth.currentUser && auth.currentUser.email === email) {
+        // User is already signed in with Firebase, skip account creation step
+        await sendEmailVerification(auth.currentUser).catch(() => {});
+        setStep(2);
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(userCredential.user);
+        setStep(2);
+      }
     } catch (error) {
       console.error("Error creating account:", error);
-      setErrorMsg(error.message.replace("Firebase: ", ""));
+      if (error.code === "auth/email-already-in-use" && auth.currentUser) {
+        // User exists and is currently signed in
+        setStep(2);
+      } else {
+        setErrorMsg(error.message.replace("Firebase: ", ""));
+      }
     } finally {
       setLoading(false);
     }
@@ -132,7 +145,7 @@ export default function Register() {
       setLoading(true);
       try {
         const token = await auth.currentUser.getIdToken();
-        const response = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users", {
+        const response = await fetch(API_BASE + "/api/users", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

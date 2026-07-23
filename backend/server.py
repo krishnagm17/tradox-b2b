@@ -273,7 +273,11 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
 async def kyb(token_data: dict = Depends(verify_token)):
     db = get_db()
     res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
-    db.table("companies").update({"kybStatus": "VERIFIED"}).eq("id", res.data[0]["companyId"]).execute()
+    if res.data:
+        company_id = res.data[0].get("companyId")
+        if company_id:
+            db.table("companies").update({"verificationStatus": "VERIFIED"}).eq("id", company_id).execute()
+        db.table("users").update({"kybStatus": "VERIFIED"}).eq("firebase_uid", token_data.get("uid")).execute()
     return {"status": "success"}
 
 @app.post("/api/negotiations/rooms/{room_id}/accept", response_model=Order)
