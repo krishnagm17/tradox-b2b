@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Search, Calculator, ArrowLeft, CheckCircle2, Info } from "lucide-react";
+import Sidebar from "../components/Sidebar";
 
 // ─── HSN CODE DATABASE (50+ entries) ─────────────────────────────────────────
 const HSN_DATABASE = [
