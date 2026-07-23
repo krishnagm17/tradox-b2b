@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -23,17 +23,6 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        const isEmailVerified = currentUser.emailVerified;
-        const isPhoneVerified = currentUser.providerData.some(p => p.providerId === 'phone');
-        
-        if (!isEmailVerified || !isPhoneVerified) {
-          await signOut(auth);
-          setUser(null);
-          setDbUser(null);
-          setLoading(false);
-          return;
-        }
-
         setUser(currentUser);
         await fetchUserDetails(currentUser);
       } else {
@@ -204,36 +193,40 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                   )}
 
                   <div className="p-2 space-y-1">
+                    {/* Profile */}
                     <button 
-                      onClick={() => {
-                        setShowDropdown(false);
-                        navigate("/dashboard");
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                      onClick={() => { setShowDropdown(false); navigate("/profile"); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
                     >
                       <User className="w-4 h-4" />
-                      Company Dashboard
+                      My Profile
                     </button>
+                    {/* Settings */}
                     <button 
-                      onClick={() => {
-                        setShowDropdown(false);
-                        if (dbUser && dbUser.commodities) {
-                          setSelectedCommodities(dbUser.commodities.split(",").map(c => c.trim()).filter(c => c));
-                        }
-                        setShowModal(true);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                      onClick={() => { setShowDropdown(false); navigate("/settings"); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
                     >
                       <Edit3 className="w-4 h-4" />
-                      Edit Commodities
+                      Settings
                     </button>
+                    {/* Company Dashboard */}
                     <button 
-                      onClick={handleSignOut}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-colors"
+                      onClick={() => { setShowDropdown(false); navigate("/dashboard"); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:text-white hover:bg-white/5 rounded-md transition-colors"
                     >
-                      <LogOut className="w-4 h-4" />
-                      Sign Out
+                      <Inbox className="w-4 h-4" />
+                      Company Dashboard
                     </button>
+                    {/* Sign Out */}
+                    <div className="pt-1 mt-1 border-t border-border/50">
+                      <button 
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

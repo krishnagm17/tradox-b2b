@@ -11,6 +11,8 @@ import CompanyDashboard from "./pages/CompanyDashboard";
 import NegotiationRoom from "./pages/NegotiationRoom";
 import Inbox from "./pages/Inbox";
 import AdminKyb from "./pages/AdminKyb";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 
 function App() {
   return (
@@ -28,8 +30,10 @@ function App() {
           <Route path="/dashboard" element={<CompanyDashboard />} />
           <Route path="/negotiation/:room_id" element={<NegotiationRoom />} />
           <Route path="/inbox" element={<Inbox />} />
-          {/* Admin Routes */}
           <Route path="/admin/kyb" element={<AdminKyb />} />
+          {/* User Account Routes */}
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </BrowserRouter>
     </div>
