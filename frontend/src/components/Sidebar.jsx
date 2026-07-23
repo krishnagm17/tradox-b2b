@@ -1,12 +1,13 @@
-﻿import React from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User, Menu, X } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -25,9 +26,27 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-brand-navy border-r border-slate-800 flex flex-col h-screen sticky top-0 transition-all duration-300">
-      {/* Logo Area */}
-      <div className="h-16 flex items-center px-6 border-b border-slate-800 shrink-0 cursor-pointer hover:bg-slate-800/50 transition-colors" onClick={() => navigate("/")}>
+    <>
+      {/* Mobile Menu Toggle Button */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="md:hidden fixed bottom-6 right-6 z-[60] p-4 bg-brand-navy text-white rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95"
+      >
+        {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+      </button>
+
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[40] transition-opacity"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Content */}
+      <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-brand-navy border-r border-slate-800 flex flex-col shrink-0 z-[50] transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        {/* Logo Area */}
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800 shrink-0 cursor-pointer hover:bg-slate-800/50 transition-colors">
         <div className="font-cinzel text-lg text-white tracking-[0.08em] leading-none uppercase">
           <span className="text-[1.3em]">T</span>radox <span className="text-[1.3em]">B2B</span>
         </div>
@@ -80,5 +99,6 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }
