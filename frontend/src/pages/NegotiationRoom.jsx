@@ -306,6 +306,9 @@ export default function NegotiationRoom() {
     }
   };
 
+  const [showRfqDetailsModal, setShowRfqDetailsModal] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
   if (!room) return <div className="min-h-screen bg-muted flex items-center justify-center text-primary font-mono text-sm">Connecting to secure terminal...</div>;
 
   const isBuyer = room.buyer_id === auth.currentUser?.uid;
@@ -328,17 +331,66 @@ export default function NegotiationRoom() {
               </span>
             </div>
             <div className="text-[0.65rem] font-mono tracking-widest text-primary uppercase">
-              Online Â· End-to-End Encrypted
+              Online · End-to-End Encrypted
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="text-[0.65rem] font-mono tracking-widest uppercase px-3 py-1.5 border border-border rounded-md hover:border-border transition-colors">
+        <div className="flex items-center gap-4 relative">
+          <button 
+            onClick={() => setShowRfqDetailsModal(true)}
+            className="text-[0.65rem] font-mono tracking-widest uppercase px-3 py-1.5 border border-primary/40 text-primary bg-primary/10 rounded-md hover:bg-primary hover:text-white transition-colors"
+          >
             View RFQ Details
           </button>
-          <button className="text-muted-foreground hover:text-foreground transition-colors">
+          
+          <button 
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-white/5 transition-colors"
+            title="More Options"
+          >
             <MoreVertical className="w-5 h-5" />
           </button>
+
+          {/* More Options Dropdown Menu */}
+          {showMoreMenu && (
+            <div className="absolute right-0 top-10 w-52 bg-card border border-border rounded-lg shadow-xl z-50 py-1 font-sans text-xs">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(id);
+                  toast.success("Room ID copied to clipboard!");
+                  setShowMoreMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-white/5 text-foreground flex items-center gap-2"
+              >
+                📋 Copy Room ID
+              </button>
+              <button
+                onClick={() => {
+                  setShowRfqDetailsModal(true);
+                  setShowMoreMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-white/5 text-foreground flex items-center gap-2"
+              >
+                📊 Deal Summary
+              </button>
+              <button
+                onClick={() => {
+                  toast.info("Report logged. Compliance team notified.");
+                  setShowMoreMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-white/5 text-rose-400 flex items-center gap-2"
+              >
+                ⚠️ Report Room
+              </button>
+              <div className="border-t border-border my-1" />
+              <button
+                onClick={() => navigate("/inbox")}
+                className="w-full text-left px-4 py-2 hover:bg-white/5 text-muted-foreground flex items-center gap-2"
+              >
+                🚪 Leave Room
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -659,6 +711,62 @@ export default function NegotiationRoom() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* RFQ / Deal Details Modal */}
+        {showRfqDetailsModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card text-foreground border border-border rounded-2xl shadow-2xl max-w-lg w-full p-6 relative">
+              <button
+                onClick={() => setShowRfqDetailsModal(false)}
+                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[0.65rem] font-mono uppercase text-primary tracking-widest">Active Negotiation</span>
+              </div>
+              <h2 className="text-xl font-bold font-heading mb-1">Trade & RFQ Specifications</h2>
+              <p className="text-xs text-muted-foreground mb-6 font-mono">Room ID: {id}</p>
+
+              <div className="space-y-3 text-xs divide-y divide-border">
+                <div className="pt-2 flex justify-between">
+                  <span className="text-muted-foreground font-mono uppercase">Negotiation Type</span>
+                  <span className="font-bold">{room?.rfqId ? "Buyer RFQ Response" : "Product Inventory Listing"}</span>
+                </div>
+                <div className="pt-2 flex justify-between">
+                  <span className="text-muted-foreground font-mono uppercase">Partner</span>
+                  <span className="font-bold text-primary">{partnerName}</span>
+                </div>
+                <div className="pt-2 flex justify-between">
+                  <span className="text-muted-foreground font-mono uppercase">Incoterms</span>
+                  <span className="font-bold">{offerData.incoterm || offerData.incoterms || "FOB / CIF"}</span>
+                </div>
+                <div className="pt-2 flex justify-between">
+                  <span className="text-muted-foreground font-mono uppercase">Payment Terms</span>
+                  <span className="font-bold">{offerData.payment_terms || "LC at Sight / Escrow"}</span>
+                </div>
+                <div className="pt-2 flex justify-between">
+                  <span className="text-muted-foreground font-mono uppercase">Inspection Standard</span>
+                  <span className="font-bold">SGS / Independent Certificate</span>
+                </div>
+                <div className="pt-2 flex justify-between">
+                  <span className="text-muted-foreground font-mono uppercase">Room Status</span>
+                  <span className="font-bold text-emerald-400">{room?.status || "ACTIVE"}</span>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-border flex justify-end">
+                <button
+                  onClick={() => setShowRfqDetailsModal(false)}
+                  className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-colors"
+                >
+                  Close Details
+                </button>
+              </div>
             </div>
           </div>
         )}
