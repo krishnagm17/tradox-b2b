@@ -297,70 +297,57 @@ export default function AdminKyb() {
                   )}
                 </div>
 
-                {/* Action Area — Only for SUBMITTED */}
-                {sub.kybStatus === "SUBMITTED" && (
-                  <div className="border-t border-slate-100 px-5 py-4 bg-slate-50">
-                    {/* Reject reason input */}
-                    <div className="mb-3">
-                      <label className="block text-[0.65rem] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Rejection Reason (optional — only needed if rejecting)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Document is unclear / expired / not matching company name..."
-                        value={rejectReasons[sub.id] || ""}
-                        onChange={e => setRejectReasons(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                        className="w-full bg-white border border-slate-300 h-9 px-3 text-xs rounded-lg outline-none focus:border-slate-400 transition-all"
-                      />
-                    </div>
+                {/* Action Area — Always available for Admin to Approve or Reject */}
+                <div className="border-t border-slate-100 px-5 py-4 bg-slate-50">
+                  {/* Reject reason input */}
+                  <div className="mb-3">
+                    <label className="block text-[0.65rem] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Rejection Reason (optional — fill if rejecting)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Document is unclear / expired / not matching company name..."
+                      value={rejectReasons[sub.id] || ""}
+                      onChange={e => setRejectReasons(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                      className="w-full bg-white border border-slate-300 h-9 px-3 text-xs rounded-lg outline-none focus:border-slate-400 transition-all"
+                    />
+                  </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={() => handleApprove(sub.id, sub.companyName)}
-                        disabled={!!actionLoading[sub.id]}
-                        className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
-                      >
-                        {actionLoading[sub.id] === "approve" ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4" />
-                        )}
-                        ✓ Approve & Verify
-                      </button>
-                      <button
-                        onClick={() => handleReject(sub.id, sub.companyName)}
-                        disabled={!!actionLoading[sub.id]}
-                        className="flex-1 h-10 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
-                      >
-                        {actionLoading[sub.id] === "reject" ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <XCircle className="w-4 h-4" />
-                        )}
-                        ✗ Reject
-                      </button>
-                    </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => handleApprove(sub.id, sub.companyName)}
+                      disabled={!!actionLoading[sub.id]}
+                      className={`flex-1 h-10 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${
+                        sub.kybStatus === "VERIFIED"
+                          ? "bg-emerald-700 text-white shadow-inner ring-2 ring-emerald-500"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg"
+                      }`}
+                    >
+                      {actionLoading[sub.id] === "approve" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4" />
+                      )}
+                      {sub.kybStatus === "VERIFIED" ? "✓ Approved (Click to Re-Approve)" : "✓ Approve & Verify"}
+                    </button>
+                    <button
+                      onClick={() => handleReject(sub.id, sub.companyName)}
+                      disabled={!!actionLoading[sub.id]}
+                      className={`flex-1 h-10 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${
+                        sub.kybStatus === "REJECTED"
+                          ? "bg-rose-700 text-white shadow-inner ring-2 ring-rose-500"
+                          : "bg-rose-600 hover:bg-rose-700 text-white shadow-md hover:shadow-lg"
+                      }`}
+                    >
+                      {actionLoading[sub.id] === "reject" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <XCircle className="w-4 h-4" />
+                      )}
+                      {sub.kybStatus === "REJECTED" ? "✗ Rejected (Click to Re-Reject)" : "✗ Reject"}
+                    </button>
                   </div>
-                )}
-
-                {/* Already verified/rejected status */}
-                {sub.kybStatus === "VERIFIED" && (
-                  <div className="border-t border-emerald-100 px-5 py-3 bg-emerald-50/50 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-bold text-emerald-800">Company has been approved and can trade freely.</span>
-                  </div>
-                )}
-                {sub.kybStatus === "REJECTED" && (
-                  <div className="border-t border-rose-100 px-5 py-3 bg-rose-50/50">
-                    <div className="flex items-start gap-2">
-                      <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-xs font-bold text-rose-800">Rejected</span>
-                        {sub.rejectReason && <p className="text-xs text-rose-700 mt-0.5">Reason: {sub.rejectReason}</p>}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             ))
           )}
