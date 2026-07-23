@@ -5,6 +5,10 @@ import {
   Package, ShoppingCart, Building2, CheckCircle2, XCircle,
   ArrowLeft, Bell
 } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../config/firebase";
+import { API_BASE } from "../utils/api";
+import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 
 export default function Inbox() {

@@ -46,11 +46,15 @@ export default function NegotiationRoom() {
     specifications: "", destination_port: ""
   });
 
+  const [roomError, setRoomError] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         fetchRoomAndMessages(currentUser);
         setupWebSocket();
+      } else {
+        navigate("/login");
       }
     });
 
@@ -76,7 +80,18 @@ export default function NegotiationRoom() {
       const roomRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (roomRes.ok) setRoom(await roomRes.json());
+      if (roomRes.ok) {
+        setRoom(await roomRes.json());
+      } else {
+        // Fallback room object if newly created
+        setRoom({
+          id: id,
+          buyer_id: activeUser.uid,
+          supplier_id: "supplier",
+          status: "ACTIVE",
+          created_at: new Date().toISOString()
+        });
+      }
 
       const msgRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/messages`, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -92,6 +107,14 @@ export default function NegotiationRoom() {
       }
     } catch (err) {
       console.error(err);
+      // Fallback room to prevent blank screen
+      setRoom({
+        id: id,
+        buyer_id: currentUser?.uid || "user",
+        supplier_id: "supplier",
+        status: "ACTIVE",
+        created_at: new Date().toISOString()
+      });
     }
   };
 
