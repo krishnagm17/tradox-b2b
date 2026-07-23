@@ -109,7 +109,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-28 bg-gradient-to-b from-slate-50 via-white to-emerald-50/30 overflow-hidden">
+      <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-24 bg-gradient-to-b from-slate-100 via-emerald-50/30 to-slate-50 border-b border-slate-200 overflow-hidden">
         {/* Decorative Grid */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000005_1px,transparent_1px),linear-gradient(to_bottom,#00000005_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
@@ -117,7 +117,7 @@ export default function Landing() {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-semibold tracking-wide uppercase mb-8 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold tracking-wide uppercase mb-8 shadow-sm">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             Verified B2B Wholesale Trading Platform
           </div>
@@ -151,18 +151,20 @@ export default function Landing() {
           </div>
 
           {/* Social Proof Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10 border-t border-slate-200 max-w-3xl mx-auto">
-            <div className="flex flex-col items-center">
-              <span className="text-3xl font-heading font-bold text-slate-900">140+</span>
-              <span className="text-xs text-slate-500 font-semibold mt-1">Countries Connected</span>
-            </div>
-            <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-200 py-4 sm:py-0">
-              <span className="text-3xl font-heading font-bold text-slate-900">18,000+</span>
-              <span className="text-xs text-slate-500 font-semibold mt-1">Verified Businesses</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-3xl font-heading font-bold text-slate-900">$4.8 Billion</span>
-              <span className="text-xs text-slate-500 font-semibold mt-1">Total Trade Volume</span>
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-heading font-extrabold text-slate-900">140+</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Countries Connected</span>
+              </div>
+              <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-200 py-4 sm:py-0">
+                <span className="text-3xl font-heading font-extrabold text-slate-900">18,000+</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Verified Businesses</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-heading font-extrabold text-slate-900">$4.8 Billion</span>
+                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Total Trade Volume</span>
+              </div>
             </div>
           </div>
 
@@ -170,7 +172,7 @@ export default function Landing() {
       </section>
 
       {/* Live Market Ticker */}
-      <div className="bg-slate-900 text-slate-100 border-y border-slate-800 py-3.5 overflow-hidden whitespace-nowrap text-xs font-mono shadow-inner">
+      <div className="bg-slate-950 text-slate-100 border-y border-slate-800 py-3.5 overflow-hidden whitespace-nowrap text-xs font-mono shadow-inner">
         <div className="inline-block animate-[marquee_30s_linear_infinite]">
           <span className="mx-8">GOLD: <span className="text-emerald-400 font-bold">$2,450.50</span> / OZ {renderTickerChange(0.5)}</span>
           <span className="mx-8">WHEAT: <span className="text-emerald-400 font-bold">$680.20</span> / MT {renderTickerChange(-1.2)}</span>
@@ -182,11 +184,11 @@ export default function Landing() {
       </div>
 
       {/* HOW IT WORKS SECTION (Simple 4-Step Diagram) */}
-      <section id="how-it-works" className="py-20 sm:py-28 bg-slate-50 relative border-b border-slate-200">
+      <section id="how-it-works" className="py-20 sm:py-28 bg-slate-100/80 relative border-b border-slate-200">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-mono font-bold tracking-widest text-emerald-700 uppercase bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-200">
+            <span className="text-xs font-mono font-bold tracking-widest text-emerald-800 uppercase bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-300">
               Simple 4-Step Process
             </span>
             <h2 className="text-3xl sm:text-4xl font-heading font-bold text-slate-900 mt-4 mb-4">
@@ -200,7 +202,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             
             {/* Step 1 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
               <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform">
                 1
               </div>
@@ -211,7 +213,7 @@ export default function Landing() {
             </div>
 
             {/* Step 2 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
               <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform">
                 2
               </div>
@@ -222,7 +224,7 @@ export default function Landing() {
             </div>
 
             {/* Step 3 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
               <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform">
                 3
               </div>
@@ -233,7 +235,7 @@ export default function Landing() {
             </div>
 
             {/* Step 4 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 relative group hover:border-emerald-500 transition-all shadow-md hover:shadow-xl">
               <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-lg mb-6 group-hover:scale-110 transition-transform">
                 4
               </div>
@@ -259,59 +261,59 @@ export default function Landing() {
       </section>
 
       {/* WHY TRADOXB2B SECTION */}
-      <section id="why-us" className="py-20 bg-white border-b border-slate-200">
+      <section id="why-us" className="py-20 bg-slate-900 text-white border-b border-slate-800">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-12">
             <div>
-              <span className="text-xs font-mono font-bold tracking-widest text-emerald-700 uppercase bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-200 mb-4 inline-block">
+              <span className="text-xs font-mono font-bold tracking-widest text-emerald-400 uppercase bg-emerald-950/80 px-3.5 py-1.5 rounded-full border border-emerald-800 mb-4 inline-block">
                 Built for Safety & Profit
               </span>
-              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-slate-900 leading-tight mb-6">
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-white leading-tight mb-6">
                 Why International Traders Trust TradoxB2B
               </h2>
-              <p className="text-slate-600 text-base leading-relaxed mb-8">
+              <p className="text-slate-300 text-base leading-relaxed mb-8">
                 Traditional bulk commodity trading relies on expensive middleman brokers and slow paperwork. TradoxB2B gives you direct access, verified security, and full transparency.
               </p>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 text-slate-800 text-sm font-semibold">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="flex items-center gap-3 text-slate-200 text-sm font-semibold">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                   Direct connection with verified buyers & suppliers
                 </div>
-                <div className="flex items-center gap-3 text-slate-800 text-sm font-semibold">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="flex items-center gap-3 text-slate-200 text-sm font-semibold">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                   Save 3% to 5% on every shipment (Zero commission)
                 </div>
-                <div className="flex items-center gap-3 text-slate-800 text-sm font-semibold">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="flex items-center gap-3 text-slate-200 text-sm font-semibold">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                   Bank-backed escrow and Letter of Credit (LC) protection
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm hover:border-emerald-300 transition-colors">
-                <ShieldCheck className="w-8 h-8 text-emerald-600 mb-3" />
-                <h4 className="text-base font-bold text-slate-900 mb-1">100% Verified Members</h4>
-                <p className="text-xs text-slate-600 leading-relaxed">Every business is checked with trade licenses and tax certificates.</p>
+              <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-md hover:border-emerald-500/50 transition-colors">
+                <ShieldCheck className="w-8 h-8 text-emerald-400 mb-3" />
+                <h4 className="text-base font-bold text-white mb-1">100% Verified Members</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">Every business is checked with trade licenses and tax certificates.</p>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm hover:border-emerald-300 transition-colors">
-                <Lock className="w-8 h-8 text-emerald-600 mb-3" />
-                <h4 className="text-base font-bold text-slate-900 mb-1">Escrow Protection</h4>
-                <p className="text-xs text-slate-600 leading-relaxed">Payments are locked safely and released only after delivery milestones.</p>
+              <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-md hover:border-emerald-500/50 transition-colors">
+                <Lock className="w-8 h-8 text-emerald-400 mb-3" />
+                <h4 className="text-base font-bold text-white mb-1">Escrow Protection</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">Payments are locked safely and released only after delivery milestones.</p>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm hover:border-emerald-300 transition-colors">
-                <Activity className="w-8 h-8 text-emerald-600 mb-3" />
-                <h4 className="text-base font-bold text-slate-900 mb-1">Live Price Discovery</h4>
-                <p className="text-xs text-slate-600 leading-relaxed">Broadcast buy or sell offers globally and receive competitive responses.</p>
+              <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-md hover:border-emerald-500/50 transition-colors">
+                <Activity className="w-8 h-8 text-emerald-400 mb-3" />
+                <h4 className="text-base font-bold text-white mb-1">Live Price Discovery</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">Broadcast buy or sell offers globally and receive competitive responses.</p>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm hover:border-emerald-300 transition-colors">
-                <Percent className="w-8 h-8 text-emerald-600 mb-3" />
-                <h4 className="text-base font-bold text-slate-900 mb-1">Zero Commission</h4>
-                <p className="text-xs text-slate-600 leading-relaxed">No hidden fees or broker markups. Direct prices between buyer & seller.</p>
+              <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-md hover:border-emerald-500/50 transition-colors">
+                <Percent className="w-8 h-8 text-emerald-400 mb-3" />
+                <h4 className="text-base font-bold text-white mb-1">Zero Commission</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">No hidden fees or broker markups. Direct prices between buyer & seller.</p>
               </div>
             </div>
           </div>
@@ -320,12 +322,12 @@ export default function Landing() {
       </section>
 
       {/* COMMODITIES MARKET SECTION */}
-      <section id="commodities" className="py-20 bg-slate-50">
+      <section id="commodities" className="py-20 bg-gradient-to-b from-slate-100 to-slate-50 border-b border-slate-200">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
             <div>
-              <span className="text-xs font-mono font-bold tracking-widest text-emerald-700 uppercase bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-200 mb-3 inline-block">
+              <span className="text-xs font-mono font-bold tracking-widest text-emerald-800 uppercase bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-300 mb-3 inline-block">
                 Top Commodities
               </span>
               <h2 className="text-3xl font-heading font-bold text-slate-900">
@@ -334,7 +336,7 @@ export default function Landing() {
             </div>
             <button 
               onClick={() => navigate("/live-board")}
-              className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              className="text-sm font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl transition-colors"
             >
               View All Live Lots →
             </button>
