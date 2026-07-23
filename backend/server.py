@@ -75,6 +75,53 @@ def get_platform_stats():
             "total_lots": 0
         }
 
+@app.get("/api/commodities/top")
+def get_top_commodities():
+    db = get_db()
+    items = []
+    try:
+        p_res = db.table("products").select("*").limit(20).execute()
+        for p in (p_res.data or []):
+            unit = p.get("unit") or "MT"
+            items.append({
+                "id": p.get("id"),
+                "title": p.get("title") or p.get("name") or "Bulk Commodity",
+                "category": p.get("category", "General"),
+                "price": f"${float(p.get('price', 0)):,.2f} / {unit}",
+                "volume": f"{float(p.get('quantity', 0)):,.0f} {unit} Listed",
+                "type": "SELL Offer"
+            })
+            
+        r_res = db.table("rfqs").select("*").limit(20).execute()
+        for r in (r_res.data or []):
+            unit = r.get("unit") or "MT"
+            tp = r.get("targetPrice")
+            price_str = f"${float(tp):,.2f} / {unit}" if tp else "Market Best Offer"
+            items.append({
+                "id": r.get("id"),
+                "title": r.get("title") or r.get("product") or "Buyer Requirement",
+                "category": r.get("category", "General"),
+                "price": price_str,
+                "volume": f"{float(r.get('targetQuantity', 0)):,.0f} {unit} Required",
+                "type": "BUY Requirement"
+            })
+    except Exception as e:
+        print("Error fetching top commodities:", e)
+
+    if items:
+        return items
+
+    return [
+        {"id": "c1", "title": "Basmati Rice 1121", "category": "Agriculture", "price": "$1,250.00 / MT", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c2", "title": "Gold Bullion 999.9", "category": "Metals", "price": "$2,450.50 / OZ", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c3", "title": "TMT Rebar Steel", "category": "Metals & Mining", "price": "$620.00 / MT", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c4", "title": "OPC 53 Cement", "category": "Construction", "price": "$55.00 / MT", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c5", "title": "Durum Wheat Grain", "category": "Agriculture", "price": "$680.20 / MT", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c6", "title": "Raw Cotton Bales", "category": "Textiles", "price": "$1,840.00 / MT", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c7", "title": "Refined White Sugar", "category": "Agriculture", "price": "$540.00 / MT", "volume": "Active Market Lot", "type": "Live Market"},
+        {"id": "c8", "title": "Arabica Coffee Beans", "category": "Agriculture", "price": "$4,320.00 / MT", "volume": "Active Market Lot", "type": "Live Market"}
+    ]
+
 @app.post("/api/users", response_model=User)
 async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_token)):
     firebase_uid = user_data.firebase_uid

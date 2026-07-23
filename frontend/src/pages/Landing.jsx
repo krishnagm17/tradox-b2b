@@ -10,6 +10,7 @@ export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ users_count: 1, companies_count: 1, products_count: 0, rfqs_count: 0, total_lots: 0 });
+  const [topCommodities, setTopCommodities] = useState([]);
   const [marketData, setMarketData] = useState({
     gold: { price: 2450.50, change: 0.5 },
     wheat: { price: 680.20, change: -1.2 },
@@ -40,6 +41,16 @@ export default function Landing() {
         }
       })
       .catch(err => console.error("Failed to fetch live stats", err));
+
+    // Fetch real top commodity lots from database
+    fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/commodities/top")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setTopCommodities(data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch top commodities", err));
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -361,14 +372,25 @@ export default function Landing() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <CommodityCard title="Basmati Rice" vol="5,000+ MT Active" price={`$ ${marketData.rice.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="Gold Bullion" vol="250+ KG Active" price={`$ ${marketData.gold.price.toFixed(2)} / OZ`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="TMT Steel" vol="12,000+ MT Active" price={`$ ${marketData.steel.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="OPC Cement" vol="25,000+ MT Active" price={`$ ${marketData.cement.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="Wheat Grain" vol="30,000+ MT Active" price={`$ ${marketData.wheat.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="Raw Cotton" vol="5,500+ MT Active" price={`$ ${marketData.cotton.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="White Sugar" vol="12,500+ MT Active" price={`$ ${marketData.sugar.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
-            <CommodityCard title="Arabica Coffee" vol="800+ MT Active" price={`$ ${marketData.coffee.price.toFixed(2)} / MT`} onClick={() => navigate("/live-board")} />
+            {topCommodities.length > 0 ? (
+              topCommodities.map((item, idx) => (
+                <CommodityCard
+                  key={item.id || idx}
+                  title={item.title}
+                  vol={item.volume}
+                  price={item.price}
+                  badge={item.type}
+                  onClick={() => navigate("/live-board")}
+                />
+              ))
+            ) : (
+              <>
+                <CommodityCard title="Basmati Rice 1121" vol="Active Market Lot" price={`$ ${marketData.rice.price.toFixed(2)} / MT`} badge="Agriculture" onClick={() => navigate("/live-board")} />
+                <CommodityCard title="Gold Bullion 999.9" vol="Active Market Lot" price={`$ ${marketData.gold.price.toFixed(2)} / OZ`} badge="Metals" onClick={() => navigate("/live-board")} />
+                <CommodityCard title="TMT Steel Rebar" vol="Active Market Lot" price={`$ ${marketData.steel.price.toFixed(2)} / MT`} badge="Metals & Mining" onClick={() => navigate("/live-board")} />
+                <CommodityCard title="OPC 53 Cement" vol="Active Market Lot" price={`$ ${marketData.cement.price.toFixed(2)} / MT`} badge="Construction" onClick={() => navigate("/live-board")} />
+              </>
+            )}
           </div>
 
         </div>
@@ -381,7 +403,7 @@ export default function Landing() {
             Ready to Grow Your Bulk Trade Business?
           </h2>
           <p className="text-emerald-100 text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed font-normal">
-            Join over 18,000 verified buyers and suppliers already trading directly on TradoxB2B.
+            Join verified buyers and suppliers already trading directly on TradoxB2B.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button 
@@ -445,20 +467,27 @@ export default function Landing() {
   );
 }
 
-function CommodityCard({ title, vol, price, onClick }) {
+function CommodityCard({ title, vol, price, badge, onClick }) {
   return (
-    <div onClick={onClick} className="group bg-white rounded-xl border border-slate-200 p-6 transition-all duration-200 hover:border-emerald-500 hover:-translate-y-1 hover:shadow-lg cursor-pointer flex flex-col justify-between">
+    <div onClick={onClick} className="group bg-white rounded-2xl border border-slate-200 p-6 transition-all duration-200 hover:border-emerald-500 hover:-translate-y-1 hover:shadow-xl cursor-pointer flex flex-col justify-between">
       <div>
         <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
             <Package className="w-5 h-5" />
           </div>
-          <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200">{price}</span>
+          {badge && (
+            <span className="text-[0.65rem] font-mono font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300">
+              {badge}
+            </span>
+          )}
         </div>
         <h3 className="text-lg font-heading font-bold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">{title}</h3>
-        <p className="text-xs text-slate-500">{vol}</p>
+        <p className="text-xs text-slate-500 font-medium mb-3">{vol}</p>
+        <span className="inline-block font-mono text-sm font-bold text-slate-900 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+          {price}
+        </span>
       </div>
-      <div className="mt-6 pt-4 border-t border-slate-100 text-xs font-semibold text-emerald-600 flex items-center justify-between">
+      <div className="mt-6 pt-4 border-t border-slate-100 text-xs font-bold text-emerald-600 flex items-center justify-between">
         <span>Explore Lots</span>
         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
       </div>
