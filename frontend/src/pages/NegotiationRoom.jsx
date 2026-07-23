@@ -15,6 +15,7 @@ export default function NegotiationRoom() {
   const [isTyping, setIsTyping] = useState(false);
   const [kybStatus, setKybStatus] = useState(null);
   const messagesEndRef = useRef(null);
+  const wsRef = useRef(null);
 
   // Phase 3: Offer State
   const [showOfferForm, setShowOfferForm] = useState(false);
@@ -34,7 +35,10 @@ export default function NegotiationRoom() {
 
     return () => {
       unsubscribe();
-      if (ws) ws.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [id]);
 
@@ -71,12 +75,28 @@ export default function NegotiationRoom() {
   };
 
   const setupWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
     const socket = new WebSocket(`${WS_BASE}/ws/negotiations/${id}`);
     
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "chat") {
-        setMessages(prev => [...prev, data.message]);
+        setMessages(prev => {
+          if (prev.some(m => m.id === data.message.id)) return prev;
+          
+          const filtered = prev.filter(m => !(
+            typeof m.id === "string" && 
+            m.id.startsWith("temp-") && 
+            m.sender_id === data.message.sender_id && 
+            m.content === data.message.content
+          ));
+          
+          return [...filtered, data.message];
+        });
+
         if (data.message.sender_id !== auth.currentUser?.uid) {
           setIsTyping(false);
         }
@@ -86,6 +106,10 @@ export default function NegotiationRoom() {
       }
     };
     
+    socket.onerror = (err) => console.error("WebSocket error:", err);
+    socket.onclose = () => console.log("WebSocket connection closed");
+
+    wsRef.current = socket;
     setWs(socket);
   };
 
@@ -96,22 +120,26 @@ export default function NegotiationRoom() {
     const content = newMessage.trim();
     setNewMessage("");
 
+    const currentUid = auth.currentUser?.uid;
+
     // Optimistically add message to UI
     const tempMsg = {
       id: "temp-" + Date.now(),
       room_id: id,
-      sender_id: auth.currentUser?.uid,
+      sender_id: currentUid,
       content: content,
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, tempMsg]);
 
+    const activeWs = wsRef.current || ws;
+
     // If WebSocket is open, send via WebSocket
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (activeWs && activeWs.readyState === WebSocket.OPEN) {
       try {
-        ws.send(JSON.stringify({
+        activeWs.send(JSON.stringify({
           type: "chat",
-          sender_id: auth.currentUser?.uid,
+          sender_id: currentUid,
           content: content
         }));
         return;
