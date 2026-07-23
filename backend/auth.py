@@ -21,8 +21,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         # For local development, decode the JWT without signature verification
         # to extract the user's Firebase UID and email sent from the frontend.
         decoded_token = jwt.decode(token, options={"verify_signature": False})
+        uid = decoded_token.get("user_id") or decoded_token.get("sub") or decoded_token.get("uid")
         return {
-            "uid": decoded_token.get("user_id"),
+            "uid": uid,
             "email": decoded_token.get("email", "")
         }
     except Exception as e:

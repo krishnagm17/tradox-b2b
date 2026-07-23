@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -7,6 +7,8 @@ import { Badge } from "../components/ui/Badge";
 import { auth } from "../config/firebase";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function KybWizard() {
   const navigate = useNavigate();
@@ -28,7 +30,7 @@ export default function KybWizard() {
       const toastId = toast.loading("Verifying business documents...");
       try {
         const token = await auth.currentUser?.getIdToken();
-        const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/kyb", {
+        const res = await fetch(API_BASE + "/api/users/kyb", {
           method: "POST",
           headers: { "Authorization": `Bearer ${token}` }
         });
