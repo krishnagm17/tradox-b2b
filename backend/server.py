@@ -6,6 +6,9 @@ from typing import List, Dict, Any
 import os
 import asyncio
 import datetime
+import uuid
+import shutil
+from fastapi import UploadFile, File, Form, Body
 
 from models import UserCreate, User, Company, Product, ProductCreate, RFQCreate, RFQ, NegotiationRoom, Message, Quote, Order, OfferCard, OfferVersion
 from auth import verify_token
@@ -393,3 +396,55 @@ async def get_order(order_id: str, token_data: dict = Depends(verify_token)):
 @app.post("/api/orders/{order_id}/stage")
 async def update_order_stage(order_id: str):
     return {"status": "success"}
+
+@app.get("/api/admin/kyb")
+async def get_admin_kyb():
+    db = get_db()
+    users_res = db.table("users").select("*").execute()
+    companies_res = db.table("companies").select("*").execute()
+    
+    comp_map = {c["id"]: c for c in companies_res.data}
+    
+    result = []
+    for u in users_res.data:
+        comp = comp_map.get(u.get("companyId"))
+        result.append({
+            "user": u,
+            "company": comp
+        })
+    return result
+
+@app.post("/api/admin/kyb/{user_id}/approve")
+async def approve_admin_kyb(user_id: str):
+    db = get_db()
+    u_res = db.table("users").select("*").eq("id", user_id).execute()
+    if u_res.data:
+        u = u_res.data[0]
+        db.table("users").update({"kybStatus": "VERIFIED"}).eq("id", user_id).execute()
+        if u.get("companyId"):
+            db.table("companies").update({"verificationStatus": "VERIFIED"}).eq("id", u["companyId"]).execute()
+    return {"status": "success"}
+
+@app.post("/api/admin/kyb/{user_id}/reject")
+async def reject_admin_kyb(user_id: str, data: dict = Body(...)):
+    db = get_db()
+    reason = data.get("reason", "")
+    u_res = db.table("users").select("*").eq("id", user_id).execute()
+    if u_res.data:
+        u = u_res.data[0]
+        db.table("users").update({"kybStatus": "REJECTED"}).eq("id", user_id).execute()
+        if u.get("companyId"):
+            db.table("companies").update({"verificationStatus": "REJECTED"}).eq("id", u["companyId"]).execute()
+    return {"status": "success", "reason": reason}
+
+@app.post("/api/users/kyb/upload")
+async def upload_kyb_document(file: UploadFile = File(...)):
+    os.makedirs("static/kyb", exist_ok=True)
+    file_extension = file.filename.split(".")[-1] if "." in file.filename else "pdf"
+    file_name = f"{uuid.uuid4()}.{file_extension}"
+    file_path = f"static/kyb/{file_name}"
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"url": f"/static/kyb/{file_name}"}

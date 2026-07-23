@@ -15,8 +15,28 @@ export default function NegotiationRoom() {
   const [ws, setWs] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [kybStatus, setKybStatus] = useState(null);
+  const [contactWarning, setContactWarning] = useState(false);
   const messagesEndRef = useRef(null);
   const wsRef = useRef(null);
+
+  // Contact info detection regex patterns
+  const CONTACT_PATTERNS = [
+    /\b[\d\s\-\+\(\)]{8,15}\b/,                          // Phone numbers
+    /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/, // Email addresses
+    /\bwhatsapp\b/i,                                       // WhatsApp
+    /\btelegram\b|\bt\.me\b/i,                            // Telegram
+    /\binstagram\b|\binstgram\b|\binsta\b/i,              // Instagram
+    /\bfacebook\b|\bfb\.com\b/i,                          // Facebook
+    /\bwechat\b|\bweixin\b/i,                              // WeChat
+    /\bline\.me\b/i,                                       // Line
+    /\bsignal\b/i,                                         // Signal
+    /\bviber\b/i,                                          // Viber
+    /\bskype\b/i,                                          // Skype
+  ];
+
+  const containsContactInfo = (text) => {
+    return CONTACT_PATTERNS.some(pattern => pattern.test(text));
+  };
 
   // Phase 3: Offer State
   const [showOfferForm, setShowOfferForm] = useState(false);
@@ -119,6 +139,14 @@ export default function NegotiationRoom() {
     if (!newMessage.trim()) return;
 
     const content = newMessage.trim();
+
+    // ── CONTACT INFO FILTER ──────────────────────────────────────
+    if (containsContactInfo(content)) {
+      setContactWarning(true);
+      setTimeout(() => setContactWarning(false), 6000);
+      return; // Block the message from being sent
+    }
+    setContactWarning(false);
     setNewMessage("");
 
     const currentUid = auth.currentUser?.uid;
@@ -430,29 +458,49 @@ export default function NegotiationRoom() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={sendMessage} className="max-w-4xl mx-auto relative flex items-center">
-                <button type="button" disabled={room.status !== "ACTIVE"} className="absolute left-4 text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
-                  <Paperclip className="w-5 h-5" />
-                </button>
-                <input
-                  type="text"
-                  disabled={room.status !== "ACTIVE"}
-                  placeholder={room.status === "ACTIVE" ? "Type a message or use structured offers..." : "Negotiation closed."}
-                  className="w-full bg-input disabled:bg-card disabled:opacity-50 border border-border focus:border-primary/50 rounded-full h-12 pl-12 pr-16 text-sm text-foreground focus:outline-none transition-colors"
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    handleTyping();
-                  }}
-                />
-                <button 
-                  type="submit" 
-                  disabled={!newMessage.trim() || room.status !== "ACTIVE"}
-                  className="absolute right-2 bg-primary disabled:bg-primary/20 text-foreground w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-                >
-                  <Send className="w-4 h-4 ml-0.5" />
-                </button>
-              </form>
+              <div className="space-y-2">
+                {/* Contact Info Warning Banner */}
+                {contactWarning && (
+                  <div className="max-w-4xl mx-auto flex items-start gap-3 p-3 bg-rose-950/60 border border-rose-500/40 rounded-xl animate-in fade-in duration-200">
+                    <span className="text-rose-400 shrink-0 text-lg">⚠️</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-rose-300 mb-0.5">Contact sharing is not allowed</p>
+                      <p className="text-xs text-rose-400/80 leading-relaxed">
+                        Your message appears to contain a phone number, email, or social media reference. 
+                        Please keep all communication within TradoxB2B for security.
+                      </p>
+                    </div>
+                    <button onClick={() => setContactWarning(false)} className="text-rose-400 hover:text-rose-300 shrink-0 mt-0.5">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={sendMessage} className="max-w-4xl mx-auto relative flex items-center">
+                  <button type="button" disabled={room.status !== "ACTIVE"} className="absolute left-4 text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
+                    <Paperclip className="w-5 h-5" />
+                  </button>
+                  <input
+                    type="text"
+                    disabled={room.status !== "ACTIVE"}
+                    placeholder={room.status === "ACTIVE" ? "Type a message or use structured offers..." : "Negotiation closed."}
+                    className="w-full bg-input disabled:bg-card disabled:opacity-50 border border-border focus:border-primary/50 rounded-full h-12 pl-12 pr-16 text-sm text-foreground focus:outline-none transition-colors"
+                    value={newMessage}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      if (contactWarning) setContactWarning(false);
+                      handleTyping();
+                    }}
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={!newMessage.trim() || room.status !== "ACTIVE"}
+                    className="absolute right-2 bg-primary disabled:bg-primary/20 text-foreground w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <Send className="w-4 h-4 ml-0.5" />
+                  </button>
+                </form>
+              </div>
             )}
           </div>
         </div>

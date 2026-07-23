@@ -1,146 +1,308 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
 import { auth } from "../config/firebase";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import {
+  Upload, Check, ArrowLeft, Shield, FileText,
+  AlertCircle, Clock, Loader2, CheckCircle2
+} from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function KybWizard() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [certFile, setCertFile] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tradeLicenseFile, setTradeLicenseFile] = useState(null);
-  const [bclFile, setBclFile] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
-  const steps = [
-    { title: "Corporate Metadata", desc: "Basic company information and registration numbers." },
-    { title: "Trade Licenses", desc: "Upload commercial trade licenses and tax certificates." },
-    { title: "Bank Comfort Letter", desc: "Upload proof of financial capability (BCL)." }
-  ];
+  const handleFileChange = (file) => {
+    if (!file) return;
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+    if (!allowed.includes(file.type)) {
+      setError("Only PDF, JPG, or PNG files are accepted.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File must be under 10MB.");
+      return;
+    }
+    setError("");
+    setCertFile(file);
+  };
 
-  const handleNext = async () => {
-    if (step < 3) setStep(step + 1);
-    else {
-      setLoading(true);
-      const toastId = toast.loading("Verifying business documents...");
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        const res = await fetch(API_BASE + "/api/users/kyb", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) {
-          toast.success("Business verified successfully!", { id: toastId });
-          navigate("/dashboard");
-        } else {
-          toast.error("Verification failed.", { id: toastId });
-        }
-      } catch (err) {
-        toast.error("Network error. Try again.", { id: toastId });
-      } finally {
-        setLoading(false);
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleFileChange(file);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!certFile) {
+      setError("Please upload your Certificate of Incorporation before submitting.");
+      return;
+    }
+
+    setLoading(true);
+    const toastId = toast.loading("Submitting KYB documents for review...");
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        toast.error("Session expired. Please log in again.", { id: toastId });
+        navigate("/login");
+        return;
       }
+
+      const token = await user.getIdToken();
+
+      // Upload the certificate file
+      const formData = new FormData();
+      formData.append("file", certFile);
+      formData.append("document_type", "certificate_of_incorporation");
+
+      // Try to upload file first, if endpoint doesn't exist, submit KYB status directly
+      let fileUrl = null;
+      try {
+        const uploadRes = await fetch(`${API_BASE}/api/users/kyb/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          fileUrl = uploadData.url;
+        }
+      } catch {
+        // Upload endpoint may not exist yet, continue without it
+      }
+
+      // Submit KYB status as SUBMITTED (pending admin review)
+      const res = await fetch(`${API_BASE}/api/users/kyb`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          document_type: "certificate_of_incorporation",
+          file_name: certFile.name,
+          file_url: fileUrl,
+          status: "SUBMITTED"
+        })
+      });
+
+      if (res.ok) {
+        toast.success("KYB submitted successfully! Admin will review within 1-2 business days.", { id: toastId });
+        setSubmitted(true);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail || "Submission failed. Please try again.");
+        toast.dismiss(toastId);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Network error. Please check your connection and try again.");
+      toast.dismiss(toastId);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-6 left-6 cursor-pointer" onClick={() => navigate("/live-board")}>
-        <span className="text-primary font-heading font-bold text-xl">TradoxB2B</span>
-      </div>
-      
-      <div className="max-w-3xl w-full">
-        <div className="mb-12 text-center">
-          <Badge className="mb-4">KYB Compliance</Badge>
-          <h1 className="text-3xl font-heading font-bold tracking-tight mb-2">Know Your Business</h1>
-          <p className="text-muted-foreground">We require strict verification before enabling trade capabilities to prevent fraud.</p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
-          {steps.map((s, i) => (
-            <div key={i} className={`border-t-2 pt-3 sm:pt-4 transition-colors ${step > i ? 'border-primary' : 'border-border'}`}>
-              <div className={`text-[0.6rem] sm:text-xs font-mono uppercase tracking-widest mb-1 ${step > i ? 'text-primary' : 'text-muted-foreground'}`}>Step 0{i + 1}</div>
-              <div className={`text-xs sm:text-sm font-semibold truncate ${step > i ? 'text-foreground' : 'text-muted-foreground'}`}>{s.title}</div>
+  // ─── SUCCESS STATE ─────────────────────────────────────────────────────────
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-3">Documents Submitted!</h1>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6 text-left">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-900 mb-1">Awaiting Admin Review</p>
+                <p className="text-xs text-amber-700">
+                  Your Certificate of Incorporation has been submitted. Our compliance team will manually review and approve
+                  your application within <strong>1–2 business days</strong>.
+                </p>
+                <p className="text-xs text-amber-700 mt-2">
+                  You'll receive an email notification at your registered email address once your account is verified.
+                </p>
+              </div>
             </div>
-          ))}
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 text-left">
+            <div className="flex items-center gap-3 mb-2">
+              <FileText className="w-5 h-5 text-slate-500" />
+              <span className="text-sm font-semibold text-slate-900">Submitted Document</span>
+            </div>
+            <p className="text-sm text-slate-600">{certFile?.name}</p>
+            <p className="text-xs text-slate-400 mt-1">Certificate of Incorporation</p>
+          </div>
+
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-colors"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
+      <div className="max-w-2xl w-full">
+
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-300 px-3 py-2 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Business Verification (KYB)</h1>
+            <p className="text-xs text-slate-500">Know Your Business — Required to unlock full trading features</p>
+          </div>
         </div>
 
-        <Card className="shadow-xl bg-card border-border">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl">{steps[step-1].title}</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">{steps[step-1].desc}</CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            {step === 1 && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-mono tracking-widest uppercase text-muted-foreground">Legal Entity Name</label>
-                    <Input placeholder="Acme Trading LLC" />
+        {/* Info Banner */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
+          <div className="flex gap-3">
+            <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-blue-900 mb-1">Why do we need this?</p>
+              <p className="text-xs text-blue-800 leading-relaxed">
+                To protect all traders on our platform, we verify every business before enabling trade. This prevents fraud
+                and ensures you're trading with legitimate, registered companies.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-6 border-b border-slate-100">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Certificate of Incorporation</h2>
+                <p className="text-xs text-slate-500">Upload your official company registration certificate</p>
+              </div>
+              <div className="ml-auto">
+                <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-1 rounded-full">Required</span>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Error */}
+            {error && (
+              <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="text-xs text-rose-700 font-medium">{error}</span>
+              </div>
+            )}
+
+            {/* File Upload Zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                dragging
+                  ? "border-emerald-400 bg-emerald-50"
+                  : certFile
+                  ? "border-emerald-400 bg-emerald-50/50"
+                  : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50/30"
+              }`}
+              onClick={() => document.getElementById("cert-upload").click()}
+            >
+              <input
+                id="cert-upload"
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => handleFileChange(e.target.files[0])}
+              />
+
+              {certFile ? (
+                <div>
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-mono tracking-widest uppercase text-muted-foreground">Registration Number</label>
-                    <Input placeholder="REG-123456789" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-mono tracking-widest uppercase text-muted-foreground">Tax ID / VAT</label>
-                    <Input placeholder="VAT-987654321" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-mono tracking-widest uppercase text-muted-foreground">Year Established</label>
-                    <Input type="number" placeholder="2015" />
-                  </div>
+                  <p className="text-base font-bold text-emerald-900 mb-1">{certFile.name}</p>
+                  <p className="text-xs text-emerald-700 mb-3">
+                    {(certFile.size / 1024).toFixed(0)} KB · {certFile.type.includes("pdf") ? "PDF" : "Image"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCertFile(null); }}
+                    className="text-xs text-slate-500 underline hover:text-slate-800"
+                  >
+                    Remove & upload different file
+                  </button>
                 </div>
-              </div>
-            )}
-            {step === 2 && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                <label className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:bg-muted/20 transition-colors cursor-pointer block">
-                  <input type="file" className="hidden" onChange={(e) => setTradeLicenseFile(e.target.files[0])} />
-                  <div className="flex justify-center mb-4 text-primary">
-                    {tradeLicenseFile ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                    )}
+              ) : (
+                <div>
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Upload className="w-7 h-7 text-slate-400" />
                   </div>
-                  <h4 className="font-semibold mb-2">{tradeLicenseFile ? tradeLicenseFile.name : "Upload Trade License"}</h4>
-                  <p className="text-sm text-muted-foreground">{tradeLicenseFile ? "File selected successfully." : "Drag and drop your PDF or JPG here, or click to browse."}</p>
-                </label>
-              </div>
-            )}
-            {step === 3 && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                 <label className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:bg-muted/20 transition-colors cursor-pointer block">
-                  <input type="file" className="hidden" onChange={(e) => setBclFile(e.target.files[0])} />
-                  <div className="flex justify-center mb-4 text-primary">
-                    {bclFile ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                    )}
-                  </div>
-                  <h4 className="font-semibold mb-2">{bclFile ? bclFile.name : "Upload Bank Comfort Letter (BCL)"}</h4>
-                  <p className="text-sm text-muted-foreground">{bclFile ? "File selected successfully." : "Proof of funds from a top 50 global bank. Max 5MB PDF."}</p>
-                </label>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between border-t border-border pt-6">
-            <Button variant="ghost" onClick={() => step > 1 ? setStep(step - 1) : navigate("/live-board")} disabled={loading}>
-              {step > 1 ? "Back" : "Cancel"}
-            </Button>
-            <Button onClick={handleNext} disabled={loading} className="flex items-center">
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {step === 3 ? (loading ? "Verifying..." : "Submit for Verification") : "Continue"}
-            </Button>
-          </CardFooter>
-        </Card>
+                  <p className="text-base font-semibold text-slate-900 mb-1">
+                    {dragging ? "Drop your file here" : "Drag & drop or click to upload"}
+                  </p>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Your official Certificate of Incorporation from the government/registrar
+                  </p>
+                  <p className="text-[0.65rem] text-slate-400">
+                    Accepted: PDF, JPG, PNG · Max size: 10MB
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* What is a Certificate of Incorporation */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p className="text-xs font-bold text-slate-800 mb-2">What is a Certificate of Incorporation?</p>
+              <ul className="text-xs text-slate-600 space-y-1.5">
+                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> Official document issued by the government when a company is formed</li>
+                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> Also called "Company Registration Certificate" or "Articles of Incorporation"</li>
+                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> Should show: Company Name, Registration Number, Date of Incorporation</li>
+                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> For Indian businesses: ROC certificate; UAE: Trade License; US: State filing receipt</li>
+              </ul>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading || !certFile}
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+              ) : (
+                <>Submit for Admin Review →</>
+              )}
+            </button>
+
+            <p className="text-center text-xs text-slate-400">
+              After submission, our compliance team will manually review your document. You'll be notified via email.
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );

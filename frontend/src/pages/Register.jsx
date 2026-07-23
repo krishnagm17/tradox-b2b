@@ -1,14 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, ArrowRight, CheckCircle2, AlertCircle, ShieldCheck, Globe, Mail, Phone, Lock, User, FileText, Check, Sparkles } from "lucide-react";
+import {
+  Building2, ArrowRight, CheckCircle2, AlertCircle,
+  ShieldCheck, Globe, Mail, Phone, Lock, User,
+  FileText, Check, Eye, EyeOff, Loader2
+} from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { auth, googleProvider } from "../config/firebase";
-import { 
-  createUserWithEmailAndPassword, 
-  sendEmailVerification, 
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
   signInWithPopup,
-  RecaptchaVerifier, 
-  linkWithPhoneNumber
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  onAuthStateChanged
 } from "firebase/auth";
 import { toast } from "sonner";
 
@@ -17,180 +22,237 @@ const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").repla
 export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  
-  // Step 1: User & Login Info
-  const [fullName, setFullName] = useState(auth.currentUser?.displayName || "");
-  const [email, setEmail] = useState(auth.currentUser?.email || "");
-  const [phone, setPhone] = useState(auth.currentUser?.phoneNumber || "");
-  const [password, setPassword] = useState("");
 
-  // Step 3: Company & Tax Details
+  // Step 1 fields
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isGoogleAuth, setIsGoogleAuth] = useState(false);
+
+  // Step 2 verification
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [smsSent, setSmsSent] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [emailCheckLoading, setEmailCheckLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+  // Step 3 company fields
   const [companyName, setCompanyName] = useState("");
   const [gst, setGst] = useState("");
   const [iec, setIec] = useState("");
   const [country, setCountry] = useState("India");
   const [businessCategory, setBusinessCategory] = useState("Wholesale Trading");
 
-  // Verification & Status State
+  // Global state
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [smsSent, setSmsSent] = useState(false);
-  const [isGoogleAuth, setIsGoogleAuth] = useState(false);
 
-  // -------------------------------------------------------------
-  // STEP 1 HANDLERS
-  // -------------------------------------------------------------
-  const handleStep1Next = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
-
-    if (!fullName.trim() || !email.trim() || !phone.trim() || (!password && !auth.currentUser)) {
-      setErrorMsg("Please fill in Username, Email ID, Mobile Number, and Password.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (auth.currentUser && auth.currentUser.email === email) {
-        // User already signed in via Google or pre-authenticated
-        await sendEmailVerification(auth.currentUser).catch(() => {});
-        setStep(2);
-      } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await sendEmailVerification(userCredential.user).catch(() => {});
-        setStep(2);
+  // Check if user already logged in
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Check if user already has profile
+        const token = await user.getIdToken().catch(() => null);
+        if (token) {
+          const res = await fetch(`${API_BASE}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => null);
+          if (res && res.ok) {
+            navigate("/dashboard");
+          }
+        }
       }
-    } catch (error) {
-      console.error("Step 1 Account Error:", error);
-      if (error.code === "auth/email-already-in-use") {
-        setErrorMsg("This email is already registered. Please login or sign in with Google.");
-      } else {
-        setErrorMsg(error.message.replace("Firebase: ", ""));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+    return () => unsub();
+  }, []);
 
-  // Google Sign In Handler
+  const clearError = () => setErrorMsg("");
+
+  // ─── GOOGLE SIGN IN ────────────────────────────────────────────────────────
   const handleGoogleSignIn = async () => {
-    setErrorMsg("");
+    clearError();
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      
-      setFullName(user.displayName || "");
-      setEmail(user.email || "");
-      setIsGoogleAuth(true);
-      setEmailVerified(true);
-
-      // Check if user already exists in Supabase DB
       const token = await user.getIdToken();
+
       const res = await fetch(`${API_BASE}/api/users/me`, {
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (res.ok) {
-        toast.success("Google Sign-In successful! Welcome back.");
+        toast.success("Welcome back! Redirecting to dashboard...");
         navigate("/dashboard");
         return;
       }
 
-      // If user does not exist in DB yet, take them into step flow to collect Phone & Company details
-      toast.info("Google Account linked! Please complete Mobile and Business details.");
-      setStep(1); // Stay on step 1 to confirm phone number
-    } catch (error) {
-      console.error("Google Sign-In Error:", error);
-      setErrorMsg("Google Sign-In failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // -------------------------------------------------------------
-  // STEP 2 HANDLERS (Verify Gmail & Mobile)
-  // -------------------------------------------------------------
-  const checkEmailVerification = async () => {
-    if (auth.currentUser) {
-      await auth.currentUser.reload();
-      if (auth.currentUser.emailVerified || isGoogleAuth) {
-        setEmailVerified(true);
-        setErrorMsg("");
-        toast.success("Gmail verified successfully!");
-      } else {
-        setErrorMsg("Gmail not verified yet. Please check your inbox and click the verification link.");
-      }
-    }
-  };
-
-  const handleSendSms = async () => {
-    if (!phone) {
-      setErrorMsg("Please enter a valid mobile number.");
-      return;
-    }
-    setLoading(true);
-    setErrorMsg("");
-    try {
-      // Simulate SMS OTP dispatch for smooth verification testing
-      setSmsSent(true);
-      toast.success(`Verification OTP sent to ${phone}`);
+      // New Google user — pre-fill fields and go to step 2
+      setFullName(user.displayName || "");
+      setEmail(user.email || "");
+      setEmailVerified(true); // Google emails are pre-verified
+      setIsGoogleAuth(true);
+      toast.info("Google account linked! Please add your mobile number to continue.");
+      setStep(2);
     } catch (err) {
       console.error(err);
-      setErrorMsg("Failed to send OTP code.");
+      setErrorMsg("Google Sign-In failed. Please try again or use email/password.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = () => {
-    if (!otpCode || otpCode.length < 4) {
-      setErrorMsg("Please enter a valid OTP code.");
-      return;
+  // ─── STEP 1 → CREATE ACCOUNT ───────────────────────────────────────────────
+  const handleStep1 = async (e) => {
+    e.preventDefault();
+    clearError();
+
+    if (!fullName.trim()) return setErrorMsg("Please enter your full name.");
+    if (!email.trim()) return setErrorMsg("Please enter your email address.");
+    if (!phone.trim()) return setErrorMsg("Please enter your mobile number.");
+    if (!password && !isGoogleAuth) return setErrorMsg("Please create a password.");
+    if (password.length < 6 && !isGoogleAuth) return setErrorMsg("Password must be at least 6 characters.");
+
+    setLoading(true);
+    try {
+      if (auth.currentUser && auth.currentUser.email === email) {
+        await sendEmailVerification(auth.currentUser).catch(() => {});
+        setStep(2);
+      } else {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(cred.user).catch(() => {});
+        toast.info("Verification email sent! Please check your inbox.");
+        setStep(2);
+      }
+    } catch (err) {
+      if (err.code === "auth/email-already-in-use") {
+        setErrorMsg("This email is already registered. Please login instead.");
+      } else {
+        setErrorMsg(err.message.replace("Firebase: ", "").replace(/\s*\(.*\)/, ""));
+      }
+    } finally {
+      setLoading(false);
     }
-    setPhoneVerified(true);
-    setErrorMsg("");
-    toast.success("Mobile number verified successfully!");
+  };
+
+  // ─── STEP 2 — EMAIL VERIFICATION ───────────────────────────────────────────
+  const handleCheckEmailVerified = async () => {
+    setEmailCheckLoading(true);
+    clearError();
+    try {
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+        if (auth.currentUser.emailVerified || isGoogleAuth) {
+          setEmailVerified(true);
+          toast.success("Email verified successfully!");
+        } else {
+          setErrorMsg("Email not verified yet. Please click the link in your inbox, then try again.");
+        }
+      }
+    } catch (err) {
+      setErrorMsg("Could not check email status. Please try again.");
+    } finally {
+      setEmailCheckLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    try {
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+        toast.success("Verification email resent!");
+      }
+    } catch {
+      toast.error("Please wait a moment before resending.");
+    }
+  };
+
+  // ─── STEP 2 — PHONE OTP ────────────────────────────────────────────────────
+  const setupRecaptcha = () => {
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
+    const el = document.getElementById("recaptcha-container");
+    if (el) el.innerHTML = "";
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+  };
+
+  const handleSendOtp = async () => {
+    if (!phone.trim()) return setErrorMsg("Please enter a mobile number with country code (e.g. +91...)");
+    setOtpLoading(true);
+    clearError();
+    try {
+      setupRecaptcha();
+      const formatted = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
+      const result = await signInWithPhoneNumber(auth, formatted, window.recaptchaVerifier);
+      setConfirmationResult(result);
+      setSmsSent(true);
+      toast.success(`OTP sent to ${formatted}`);
+    } catch (err) {
+      console.error(err);
+      // Fallback: simulate OTP for demo purposes (Firebase phone auth needs billing enabled)
+      setSmsSent(true);
+      toast.info("OTP simulation: enter 123456 to verify (Firebase phone auth requires billing).");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length < 4) return setErrorMsg("Please enter the OTP code.");
+    setOtpLoading(true);
+    clearError();
+    try {
+      if (confirmationResult) {
+        await confirmationResult.confirm(otpCode);
+        setPhoneVerified(true);
+        toast.success("Mobile number verified!");
+      } else if (otpCode === "123456") {
+        // Demo fallback
+        setPhoneVerified(true);
+        toast.success("Mobile number verified!");
+      } else {
+        setErrorMsg("Invalid OTP. Please try again.");
+      }
+    } catch {
+      setErrorMsg("Invalid OTP code. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
   const handleStep2Next = () => {
-    setErrorMsg("");
-    // Require mobile number confirmation
-    if (!phoneVerified && !smsSent) {
-      // Auto verify for smooth flow if user tested
-      setPhoneVerified(true);
+    clearError();
+    if (!emailVerified) {
+      return setErrorMsg("Please verify your email address before continuing.");
+    }
+    if (!phoneVerified) {
+      return setErrorMsg("Please verify your mobile number before continuing.");
     }
     setStep(3);
   };
 
-  // -------------------------------------------------------------
-  // STEP 3 HANDLERS (Company Name + GST or ICE No)
-  // -------------------------------------------------------------
-  const handleCompleteRegistration = async (e) => {
+  // ─── STEP 3 — COMPLETE REGISTRATION ───────────────────────────────────────
+  const handleComplete = async (e) => {
     e.preventDefault();
-    setErrorMsg("");
+    clearError();
 
-    if (!companyName.trim()) {
-      setErrorMsg("Company Name is required.");
-      return;
-    }
-
-    // Require GST Number OR ICE/IEC Number (at least one!)
+    if (!companyName.trim()) return setErrorMsg("Company Name is required.");
     if (!gst.trim() && !iec.trim()) {
-      setErrorMsg("Please enter either a GST Number OR an ICE / IEC Number to verify your business.");
-      return;
+      return setErrorMsg("Please provide at least one: GST Number OR ICE/IEC Number to verify your business identity.");
     }
 
     setLoading(true);
-    const toastId = toast.loading("Creating corporate account & workspace...");
-
+    const toastId = toast.loading("Creating your corporate account...");
     try {
       const user = auth.currentUser;
       if (!user) {
-        toast.error("Session expired. Please try signing in again.", { id: toastId });
+        toast.error("Session expired. Please sign in again.", { id: toastId });
         navigate("/login");
         return;
       }
@@ -200,366 +262,285 @@ export default function Register() {
         firebase_uid: user.uid,
         email: email || user.email,
         name: fullName || user.displayName || "Trader",
-        phone: phone || user.phoneNumber || "",
+        phone: phone || "",
         companyName: companyName.trim(),
         gst: gst.trim() || null,
         iec: iec.trim() || null,
-        country: country || "India",
-        businessCategory: businessCategory || "Wholesale Trading",
+        country,
+        businessCategory,
         address: "Registered Address"
       };
 
       const res = await fetch(`${API_BASE}/api/users`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        toast.success("Registration complete! Welcome to TradoxB2B.", { id: toastId });
+        toast.success("Account created! Welcome to TradoxB2B.", { id: toastId });
         navigate("/dashboard");
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        setErrorMsg(errorData.detail || "Registration failed. Please check details.");
-        toast.error("Registration failed.", { id: toastId });
+        const err = await res.json().catch(() => ({}));
+        setErrorMsg(err.detail || "Registration failed. Please try again.");
+        toast.dismiss(toastId);
       }
     } catch (err) {
-      console.error("Registration submit catch:", err);
-      setErrorMsg("Network error during registration.");
-      toast.error("Network error.", { id: toastId });
+      console.error(err);
+      setErrorMsg("Network error. Please check connection and try again.");
+      toast.dismiss(toastId);
     } finally {
       setLoading(false);
     }
   };
 
+  const steps = [
+    { num: 1, label: "Your Details" },
+    { num: 2, label: "Verification" },
+    { num: 3, label: "Business Info" }
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-emerald-500/20">
-      
-      {/* Brand Header */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="flex items-center justify-center gap-3 cursor-pointer mb-3" onClick={() => navigate("/")}>
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-600/20">
-            T
-          </div>
-          <span className="text-2xl font-heading font-bold text-slate-900 tracking-tight">Tradox<span className="text-emerald-600">B2B</span></span>
-        </div>
-        <h2 className="text-2xl font-heading font-extrabold text-slate-900 tracking-tight">
-          Create Corporate Account
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Global Bulk Commodity Trading Network
-        </p>
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans">
+      <div id="recaptcha-container" />
+
+      {/* Header */}
+      <div className="text-center mb-8">
+        <button onClick={() => navigate("/")} className="flex items-center justify-center gap-3 mx-auto mb-4 group">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold text-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">T</div>
+          <span className="text-2xl font-heading font-bold text-slate-900">Tradox<span className="text-emerald-600">B2B</span></span>
+        </button>
+        <h1 className="text-2xl font-bold text-slate-900">Create Your Account</h1>
+        <p className="text-sm text-slate-500 mt-1">Global B2B Wholesale Trading Network</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl">
-        
-        {/* Step Indicator (1 -> 2 -> 3) */}
-        <div className="mb-6 px-4">
-          <div className="grid grid-cols-3 gap-2">
-            <div className={`border-t-4 pt-2 transition-all ${step >= 1 ? 'border-emerald-600' : 'border-slate-200'}`}>
-              <div className={`text-[0.65rem] font-mono font-bold uppercase ${step >= 1 ? 'text-emerald-700' : 'text-slate-400'}`}>Step 01</div>
-              <div className={`text-xs font-semibold ${step >= 1 ? 'text-slate-900' : 'text-slate-400'}`}>User Details</div>
+      <div className="max-w-lg mx-auto w-full">
+        {/* Step Indicator */}
+        <div className="grid grid-cols-3 gap-2 mb-6">
+          {steps.map((s) => (
+            <div key={s.num} className={`border-t-4 pt-2 transition-all ${step >= s.num ? "border-emerald-600" : "border-slate-200"}`}>
+              <div className={`text-[0.6rem] font-mono font-bold uppercase tracking-wider ${step >= s.num ? "text-emerald-700" : "text-slate-400"}`}>
+                Step {String(s.num).padStart(2, "0")} {step > s.num && "✓"}
+              </div>
+              <div className={`text-xs font-semibold truncate ${step >= s.num ? "text-slate-900" : "text-slate-400"}`}>{s.label}</div>
             </div>
-            <div className={`border-t-4 pt-2 transition-all ${step >= 2 ? 'border-emerald-600' : 'border-slate-200'}`}>
-              <div className={`text-[0.65rem] font-mono font-bold uppercase ${step >= 2 ? 'text-emerald-700' : 'text-slate-400'}`}>Step 02</div>
-              <div className={`text-xs font-semibold ${step >= 2 ? 'text-slate-900' : 'text-slate-400'}`}>Verification</div>
-            </div>
-            <div className={`border-t-4 pt-2 transition-all ${step >= 3 ? 'border-emerald-600' : 'border-slate-200'}`}>
-              <div className={`text-[0.65rem] font-mono font-bold uppercase ${step >= 3 ? 'text-emerald-700' : 'text-slate-400'}`}>Step 03</div>
-              <div className={`text-xs font-semibold ${step >= 3 ? 'text-slate-900' : 'text-slate-400'}`}>Company Tax Details</div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Main Card Form */}
-        <div className="bg-white py-8 px-6 shadow-xl border border-slate-200 sm:rounded-2xl">
-          
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8">
+          {/* Error */}
           {errorMsg && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex gap-2.5 items-start">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* ============================================================== */}
-          {/* STEP 1: USERNAME, EMAIL ID & MOBILE NUMBER                      */}
-          {/* ============================================================== */}
+          {/* ══════════════ STEP 1 ══════════════ */}
           {step === 1 && (
-            <form onSubmit={handleStep1Next} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              
-              {/* Google Sign-In Button */}
-              <div>
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                  className="w-full h-12 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-3 shadow-sm hover:border-slate-400"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                  </svg>
-                  Sign in with Google
-                </button>
+            <form onSubmit={handleStep1} className="space-y-4">
+              <div className="text-center mb-2">
+                <h2 className="text-lg font-bold text-slate-900">Account Information</h2>
+                <p className="text-xs text-slate-500">Enter your personal details to get started</p>
+              </div>
 
-                <div className="relative my-6 text-center">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-                  <span className="relative bg-white px-3 text-xs text-slate-400 font-medium uppercase tracking-wider">or register with email</span>
+              {/* Google */}
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="w-full h-11 flex items-center justify-center gap-3 border border-slate-300 rounded-xl bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 transition-all shadow-sm"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                {loading ? "Signing in..." : "Sign up with Google"}
+              </button>
+
+              <div className="relative my-1 flex items-center gap-2">
+                <div className="flex-1 border-t border-slate-200" />
+                <span className="text-[0.7rem] text-slate-400 uppercase tracking-wider font-medium">or continue with email</span>
+                <div className="flex-1 border-t border-slate-200" />
+              </div>
+
+              {/* Full Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Username / Full Name *</label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input type="text" required placeholder="e.g. John Doe" value={fullName} onChange={e => setFullName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-4 text-sm rounded-xl outline-none transition-all" />
                 </div>
               </div>
 
-              {/* Username / Full Name */}
+              {/* Email */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Username / Full Name *</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address *</label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="John Doe"
-                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-3 text-sm text-slate-900 rounded-xl outline-none transition-all"
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                  />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input type="email" required placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-4 text-sm rounded-xl outline-none transition-all" />
                 </div>
               </div>
 
-              {/* Email ID */}
+              {/* Phone */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Email ID *</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number *</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="email" 
-                    required 
-                    placeholder="john@company.com"
-                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-3 text-sm text-slate-900 rounded-xl outline-none transition-all"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                  />
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input type="tel" required placeholder="+91 98765 43210" value={phone} onChange={e => setPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-4 text-sm rounded-xl outline-none transition-all" />
                 </div>
-              </div>
-
-              {/* Mobile Number */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Mobile Number *</label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="tel" 
-                    required 
-                    placeholder="+91 98765 43210"
-                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-3 text-sm text-slate-900 rounded-xl outline-none transition-all"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                  />
-                </div>
+                <p className="text-[0.65rem] text-slate-400 mt-1">Include country code (e.g. +91 for India)</p>
               </div>
 
               {/* Password */}
-              {!isGoogleAuth && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Password *</label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                    <input 
-                      type="password" 
-                      required 
-                      placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-3 text-sm text-slate-900 rounded-xl outline-none transition-all"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                    />
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password *</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input type={showPassword ? "text" : "password"} required placeholder="Min 6 characters" value={password} onChange={e => setPassword(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-10 text-sm rounded-xl outline-none transition-all" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-              )}
+              </div>
 
-              <Button 
-                type="submit" 
-                disabled={loading} 
-                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/20"
-              >
-                Continue to Step 2 →
-              </Button>
-
+              <button type="submit" disabled={loading}
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Continue to Verification →
+              </button>
             </form>
           )}
 
-          {/* ============================================================== */}
-          {/* STEP 2: VERIFY GMAIL & MOBILE NO.                              */}
-          {/* ============================================================== */}
+          {/* ══════════════ STEP 2 ══════════════ */}
           {step === 2 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                <h3 className="text-sm font-bold text-emerald-900 mb-1 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  Account Verification Center
-                </h3>
-                <p className="text-xs text-emerald-700">Please verify your Gmail and Mobile Number to continue.</p>
+            <div className="space-y-5">
+              <div className="text-center mb-2">
+                <h2 className="text-lg font-bold text-slate-900">Verify Your Account</h2>
+                <p className="text-xs text-slate-500">Complete both verifications to keep your account secure</p>
               </div>
 
-              {/* Gmail Verification */}
-              <div className="border border-slate-200 rounded-xl p-5 bg-slate-50 space-y-3">
+              {/* Email Verification Box */}
+              <div className={`rounded-xl border p-4 space-y-3 transition-all ${emailVerified ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-slate-500" />
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${emailVerified ? "bg-emerald-500" : "bg-slate-200"}`}>
+                      <Mail className={`w-4 h-4 ${emailVerified ? "text-white" : "text-slate-500"}`} />
+                    </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900">Gmail Verification</h4>
-                      <p className="text-xs text-slate-500">{email}</p>
+                      <div className="text-sm font-bold text-slate-900">Gmail Verification</div>
+                      <div className="text-xs text-slate-500">{email || "your email"}</div>
                     </div>
                   </div>
                   {emailVerified ? (
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
                       <Check className="w-3.5 h-3.5" /> Verified
                     </span>
                   ) : (
-                    <button 
-                      type="button" 
-                      onClick={checkEmailVerification}
-                      className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      Check Link
+                    <button onClick={handleCheckEmailVerified} disabled={emailCheckLoading}
+                      className="text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors">
+                      {emailCheckLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Check Link"}
                     </button>
                   )}
                 </div>
                 {!emailVerified && (
-                  <p className="text-[0.7rem] text-slate-500">We sent a verification link to your Gmail. Click link and hit 'Check Link' above.</p>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <p>A verification email was sent to your inbox. Click the link there, then click "Check Link".</p>
+                    <button onClick={handleResendEmail} className="text-emerald-600 font-semibold underline text-xs">Resend email</button>
+                  </div>
                 )}
               </div>
 
-              {/* Mobile Verification */}
-              <div className="border border-slate-200 rounded-xl p-5 bg-slate-50 space-y-4">
+              {/* Phone Verification Box */}
+              <div className={`rounded-xl border p-4 space-y-3 transition-all ${phoneVerified ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-slate-500" />
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${phoneVerified ? "bg-emerald-500" : "bg-slate-200"}`}>
+                      <Phone className={`w-4 h-4 ${phoneVerified ? "text-white" : "text-slate-500"}`} />
+                    </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900">Mobile Number Verification</h4>
-                      <p className="text-xs text-slate-500">{phone || "No phone added"}</p>
+                      <div className="text-sm font-bold text-slate-900">Mobile Verification</div>
+                      <div className="text-xs text-slate-500">{phone || "your number"}</div>
                     </div>
                   </div>
                   {phoneVerified ? (
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
                       <Check className="w-3.5 h-3.5" /> Verified
                     </span>
                   ) : (
-                    <button 
-                      type="button" 
-                      onClick={handleSendSms}
-                      disabled={loading || smsSent}
-                      className="text-xs font-bold text-slate-900 bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      {smsSent ? "OTP Sent" : "Send OTP"}
+                    <button onClick={handleSendOtp} disabled={otpLoading || smsSent}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${smsSent ? "bg-slate-100 text-slate-400" : "bg-slate-200 hover:bg-slate-300 text-slate-800"}`}>
+                      {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : smsSent ? "OTP Sent ✓" : "Send OTP"}
                     </button>
                   )}
                 </div>
 
                 {smsSent && !phoneVerified && (
-                  <div className="flex gap-2 pt-2">
-                    <input 
-                      type="text" 
-                      placeholder="Enter 6-digit OTP"
-                      className="flex-1 bg-white border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none"
-                      value={otpCode}
-                      onChange={e => setOtpCode(e.target.value)}
-                    />
-                    <button 
-                      type="button" 
-                      onClick={handleVerifyOtp}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-10 text-xs rounded-lg transition-colors"
-                    >
-                      Verify OTP
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Enter OTP code" value={otpCode} onChange={e => setOtpCode(e.target.value)}
+                      maxLength={6}
+                      className="flex-1 bg-white border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none focus:border-emerald-600" />
+                    <button onClick={handleVerifyOtp} disabled={otpLoading}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-10 text-xs rounded-lg transition-colors">
+                      {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify"}
                     </button>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setStep(1)} 
-                  className="w-1/3 h-12 border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-100 transition-colors"
-                >
-                  ← Back
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="w-1/3 h-11 border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-100 transition-colors">← Back</button>
+                <button onClick={handleStep2Next} className="w-2/3 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all">
+                  Continue to Company Info →
                 </button>
-                <Button 
-                  type="button" 
-                  onClick={handleStep2Next} 
-                  className="w-2/3 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/20"
-                >
-                  Continue to Step 3 →
-                </Button>
               </div>
-
             </div>
           )}
 
-          {/* ============================================================== */}
-          {/* STEP 3: COMPANY NAME AND GST NO OR ICE NO                      */}
-          {/* ============================================================== */}
+          {/* ══════════════ STEP 3 ══════════════ */}
           {step === 3 && (
-            <form onSubmit={handleCompleteRegistration} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              
-              <div className="bg-slate-100 border border-slate-200 rounded-xl p-4">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  Step 3: Business Identity Verification
-                </h3>
-                <p className="text-xs text-slate-500">Provide your registered company name and at least one tax identifier (GST or ICE/IEC Number).</p>
+            <form onSubmit={handleComplete} className="space-y-4">
+              <div className="text-center mb-2">
+                <h2 className="text-lg font-bold text-slate-900">Business Identity</h2>
+                <p className="text-xs text-slate-500">Required to verify your business for trading access</p>
               </div>
 
               {/* Company Name */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Company Name *</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Company Name *</label>
                 <div className="relative">
-                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="Acme Trade Global Pvt Ltd"
-                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-3 text-sm text-slate-900 rounded-xl outline-none transition-all"
-                    value={companyName}
-                    onChange={e => setCompanyName(e.target.value)}
-                  />
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input type="text" required placeholder="e.g. Acme Trade Pvt Ltd" value={companyName} onChange={e => setCompanyName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 pl-10 pr-4 text-sm rounded-xl outline-none transition-all" />
                 </div>
               </div>
 
-              {/* GST Number OR ICE/IEC Number */}
-              <div className="p-4 border border-emerald-200 bg-emerald-50/50 rounded-xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Tax Registration (Provide at least ONE) *</span>
-                  <span className="text-[0.65rem] font-mono text-emerald-700 font-semibold bg-emerald-100 px-2 py-0.5 rounded">GST or ICE Required</span>
+              {/* GST or IEC box */}
+              <div className="border border-emerald-200 bg-emerald-50/40 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Tax Registration <span className="text-rose-500">*</span></span>
+                  <span className="text-[0.65rem] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">Provide at least ONE</span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">GST Number</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 22AAAAA0000A1Z5"
-                    className="w-full bg-white border border-slate-300 focus:border-emerald-600 h-10 px-3 text-sm text-slate-900 rounded-lg outline-none transition-all"
-                    value={gst}
-                    onChange={e => setGst(e.target.value)}
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">GST Number <span className="text-slate-400 font-normal">(for Indian businesses)</span></label>
+                  <input type="text" placeholder="e.g. 22AAAAA0000A1Z5" value={gst} onChange={e => setGst(e.target.value.toUpperCase())}
+                    className="w-full bg-white border border-slate-300 focus:border-emerald-600 h-10 px-3 text-sm rounded-lg outline-none transition-all font-mono" />
                 </div>
 
-                <div className="relative text-center my-1">
-                  <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest bg-emerald-50/50 px-2">OR</span>
-                </div>
+                <div className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest">— OR —</div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">ICE / IEC Number (Import Export Code)</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 0512345678"
-                    className="w-full bg-white border border-slate-300 focus:border-emerald-600 h-10 px-3 text-sm text-slate-900 rounded-lg outline-none transition-all"
-                    value={iec}
-                    onChange={e => setIec(e.target.value)}
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ICE / IEC Number <span className="text-slate-400 font-normal">(Import Export Code)</span></label>
+                  <input type="text" placeholder="e.g. 0512345678" value={iec} onChange={e => setIec(e.target.value)}
+                    className="w-full bg-white border border-slate-300 focus:border-emerald-600 h-10 px-3 text-sm rounded-lg outline-none transition-all font-mono" />
                 </div>
               </div>
 
@@ -567,58 +548,45 @@ export default function Register() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Country</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-slate-50 border border-slate-300 h-10 px-3 text-sm text-slate-900 rounded-lg outline-none"
-                    value={country}
-                    onChange={e => setCountry(e.target.value)}
-                  />
+                  <select value={country} onChange={e => setCountry(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none">
+                    <option>India</option><option>UAE</option><option>Saudi Arabia</option>
+                    <option>USA</option><option>UK</option><option>China</option>
+                    <option>Singapore</option><option>Other</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
-                  <select 
-                    className="w-full bg-slate-50 border border-slate-300 h-10 px-3 text-sm text-slate-900 rounded-lg outline-none"
-                    value={businessCategory}
-                    onChange={e => setBusinessCategory(e.target.value)}
-                  >
-                    <option value="Wholesale Trading">Wholesale Trading</option>
-                    <option value="Importer">Importer</option>
-                    <option value="Exporter">Exporter</option>
-                    <option value="Manufacturer">Manufacturer</option>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Business Type</label>
+                  <select value={businessCategory} onChange={e => setBusinessCategory(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none">
+                    <option>Wholesale Trading</option>
+                    <option>Importer</option>
+                    <option>Exporter</option>
+                    <option>Manufacturer</option>
+                    <option>Distributor</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setStep(2)} 
-                  className="w-1/3 h-12 border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-100 transition-colors"
-                >
-                  ← Back
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setStep(2)} className="w-1/3 h-12 border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-100 transition-colors">← Back</button>
+                <button type="submit" disabled={loading} className="w-2/3 h-12 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Complete Registration →
                 </button>
-                <Button 
-                  type="submit" 
-                  disabled={loading} 
-                  className="w-2/3 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/20"
-                >
-                  Complete & Enter Workspace →
-                </Button>
               </div>
-
             </form>
           )}
 
-          {/* Footer Link */}
-          <div className="mt-8 text-center pt-6 border-t border-slate-200">
+          {/* Footer */}
+          <div className="mt-6 pt-5 border-t border-slate-200 text-center">
             <p className="text-xs text-slate-600">
               Already have an account?{" "}
               <button onClick={() => navigate("/login")} className="font-bold text-emerald-600 hover:text-emerald-700 underline">
-                Log In
+                Log In Here
               </button>
             </p>
           </div>
-
         </div>
       </div>
     </div>

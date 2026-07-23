@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle2, AlertCircle, Building2, ShieldCheck, Globe } from "lucide-react";
 import { Button } from "../components/ui/Button";
@@ -251,7 +251,7 @@ export default function Login() {
           </div>
 
           <div className="relative z-10 mt-auto pt-12 border-t border-white/10 flex items-center justify-between text-xs text-slate-500 font-mono uppercase tracking-widest">
-            <span>Â© 2024 TradoxB2B</span>
+            <span>© 2024 TradoxB2B</span>
             <span>Enterprise Secure</span>
           </div>
         </div>
@@ -344,7 +344,7 @@ export default function Login() {
 
               <div className="flex justify-center pt-6 border-t border-border">
                 <span className="text-sm text-slate-500 cursor-pointer hover:text-brand-navy transition-colors font-medium" onClick={() => navigate("/register")}>
-                  No account? Apply for access
+                  No account? Create Free Account
                 </span>
               </div>
             </div>

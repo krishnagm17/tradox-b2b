@@ -12,6 +12,16 @@ export default function LiveBoard() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [bidSuccess, setBidSuccess] = useState(false);
   const [myCompanyId, setMyCompanyId] = useState(null);
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [prices, setPrices] = useState(null);
+  const [pricesError, setPricesError] = useState(false);
+
+  const getDaysAgo = (dateStr) => {
+    const diffTime = Math.abs(new Date() - new Date(dateStr));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    return `${diffDays} days ago`;
+  };
   
   useEffect(() => {
     // Fetch User Company ID
@@ -33,6 +43,16 @@ export default function LiveBoard() {
     });
 
     fetchBoardData();
+
+    fetch("https://metals.live/api/v1/spot")
+      .then(res => res.json())
+      .then(data => {
+        setPrices(data);
+      })
+      .catch(err => {
+        console.error("Failed to fetch prices", err);
+        setPricesError(true);
+      });
 
     return () => {
       unsubscribe();
@@ -172,6 +192,50 @@ export default function LiveBoard() {
           </div>
         </div>
 
+        {/* Commodity Prices Ticker */}
+        <div className="mb-6 p-3 bg-card border border-border rounded-lg flex gap-6 overflow-x-auto text-sm font-mono whitespace-nowrap">
+          {pricesError ? (
+            <span className="text-red-400">Live price unavailable</span>
+          ) : prices && prices.length > 0 ? (
+            prices.map((p, i) => {
+              // metals.live usually returns an array of objects e.g. {gold: 1234}
+              const key = Object.keys(p)[0];
+              const value = p[key];
+              if (!key) return null;
+              return (
+                <div key={i} className="flex gap-2 capitalize">
+                  <span className="text-muted-foreground">{key}:</span>
+                  <span className="text-emerald-400 font-medium">${value}</span>
+                </div>
+              );
+            })
+          ) : (
+            <span className="text-muted-foreground">Loading prices...</span>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6 border-b border-border pb-2">
+          <button 
+            onClick={() => setActiveTab('ALL')} 
+            className={`pb-2 px-1 text-sm font-medium transition-colors ${activeTab === 'ALL' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            All Lots
+          </button>
+          <button 
+            onClick={() => setActiveTab('BUY')} 
+            className={`pb-2 px-1 text-sm font-medium transition-colors ${activeTab === 'BUY' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            BUY Requests
+          </button>
+          <button 
+            onClick={() => setActiveTab('SELL')} 
+            className={`pb-2 px-1 text-sm font-medium transition-colors ${activeTab === 'SELL' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            SELL Offers
+          </button>
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Filter className="w-5 h-5 text-muted-foreground" />
@@ -186,12 +250,12 @@ export default function LiveBoard() {
 
         {/* Mobile View: Cards Layout */}
         <div className="block md:hidden space-y-4 mb-8">
-          {items.length === 0 ? (
+          {items.filter(item => activeTab === 'ALL' || item.type === activeTab).length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground bg-card border border-border rounded-lg">
               No live lots currently posted.
             </div>
           ) : (
-            items.map(item => (
+            items.filter(item => activeTab === 'ALL' || item.type === activeTab).map(item => (
               <div key={item.id} className="bg-card border border-border rounded-lg p-5 space-y-4 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
@@ -199,6 +263,7 @@ export default function LiveBoard() {
                     <span className={`text-[0.65rem] font-mono tracking-wider uppercase font-semibold ${item.type === 'BUY' ? 'text-blue-400' : 'text-orange-400'}`}>
                       {item.type === 'BUY' ? 'BUY REQUEST (RFQ)' : 'SELL OFFER (PRODUCT)'}
                     </span>
+                    <div className="text-[0.65rem] text-muted-foreground mt-1 font-mono">Posted by Company ID: {item.companyId} • {getDaysAgo(item.createdAt)}</div>
                   </div>
                   <div className="text-base font-mono font-bold text-emerald-400">{item.price}</div>
                 </div>
@@ -224,7 +289,7 @@ export default function LiveBoard() {
                   ) : (
                     <Button 
                       onClick={() => setSelectedItem(item)}
-                      className="w-full h-10 text-xs font-semibold bg-primary text-background hover:bg-primary/90 transition-all"
+                      className={`w-full h-10 text-xs font-semibold text-white transition-all ${item.type === 'BUY' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-500 hover:bg-orange-600'}`}
                     >
                       {item.type === 'BUY' ? 'Submit Bid' : 'Negotiate'}
                     </Button>
@@ -250,14 +315,14 @@ export default function LiveBoard() {
                 </tr>
               </thead>
               <tbody>
-                {items.length === 0 ? (
+                {items.filter(item => activeTab === 'ALL' || item.type === activeTab).length === 0 ? (
                   <tr>
                     <td colSpan="6" className="py-16 text-center text-sm text-muted-foreground">
-                      No live lots currently posted.
+                      No live lots currently posted for {activeTab === 'ALL' ? 'this market' : activeTab}.
                     </td>
                   </tr>
                 ) : (
-                  items.map(item => (
+                  items.filter(item => activeTab === 'ALL' || item.type === activeTab).map(item => (
                     <tr key={item.id} className="border-b border-border hover:bg-muted transition-colors group">
                       <td className="py-4 px-6">
                         <div className="text-sm font-medium text-foreground">{item.commodity}</div>
@@ -265,6 +330,12 @@ export default function LiveBoard() {
                           <span className={item.type === 'BUY' ? 'text-blue-400' : 'text-orange-400'}>
                             {item.type === 'BUY' ? 'BUY REQUEST (RFQ)' : 'SELL OFFER (PRODUCT)'}
                           </span>
+                        </div>
+                        <div className="text-[0.65rem] text-muted-foreground font-mono mt-1">
+                          Posted by Company ID: {item.companyId}
+                        </div>
+                        <div className="text-[0.65rem] text-muted-foreground font-mono mt-0.5">
+                          {getDaysAgo(item.createdAt)}
                         </div>
                       </td>
                       <td className="py-4 px-6 text-right">
@@ -285,7 +356,7 @@ export default function LiveBoard() {
                         ) : (
                           <Button 
                             onClick={() => setSelectedItem(item)}
-                            className="h-8 px-4 text-xs font-medium bg-primary text-background hover:bg-primary/90 transition-all"
+                            className={`h-8 px-4 text-xs font-medium text-white transition-all ${item.type === 'BUY' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-500 hover:bg-orange-600'}`}
                           >
                             {item.type === 'BUY' ? 'Submit Bid' : 'Negotiate'}
                           </Button>

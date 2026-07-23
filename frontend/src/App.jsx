@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import Landing from "./pages/Landing";
 import Register from "./pages/Register";
@@ -10,6 +10,7 @@ import TradeTools from "./pages/TradeTools";
 import CompanyDashboard from "./pages/CompanyDashboard";
 import NegotiationRoom from "./pages/NegotiationRoom";
 import Inbox from "./pages/Inbox";
+import AdminKyb from "./pages/AdminKyb";
 
 function App() {
   return (
@@ -27,6 +28,8 @@ function App() {
           <Route path="/dashboard" element={<CompanyDashboard />} />
           <Route path="/negotiation/:room_id" element={<NegotiationRoom />} />
           <Route path="/inbox" element={<Inbox />} />
+          {/* Admin Routes */}
+          <Route path="/admin/kyb" element={<AdminKyb />} />
         </Routes>
       </BrowserRouter>
     </div>
