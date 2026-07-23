@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Filter, X } from "lucide-react";
 import Navbar from "../components/Navbar";
@@ -24,7 +24,7 @@ export default function LiveBoard() {
           });
           if (res.ok) {
             const data = await res.json();
-            setMyCompanyId(data.company.id);
+            setMyCompanyId(data.companyId);
           }
         } catch (e) {
           console.error("Failed to fetch user role", e);
@@ -155,7 +155,7 @@ export default function LiveBoard() {
               <span className="text-[0.65rem] font-mono tracking-widest text-primary uppercase">Live Negotiation Board</span>
             </div>
             <h1 className="text-3xl lg:text-4xl font-heading font-medium tracking-tight mb-3">
-              Broadcasted lots <span className="text-muted-foreground">Â·</span> Global buyers & sellers
+              Broadcasted lots <span className="text-muted-foreground">•</span> Global buyers & sellers
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Real-time trading floor. Buyers post requirements (RFQs). Sellers post inventory (Products). Negotiate instantly.
@@ -194,7 +194,7 @@ export default function LiveBoard() {
                 <tr className="border-b border-border bg-muted">
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal w-1/4">Commodity</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal text-right">Price</th>
-                  <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal">Origin â†’ Dest</th>
+                  <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal">Origin → Dest</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal text-right">Qty</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal">Incoterm</th>
                   <th className="py-4 px-6 text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase font-normal text-center">Action</th>
@@ -222,7 +222,7 @@ export default function LiveBoard() {
                         <div className="text-sm font-medium text-emerald-400">{item.price}</div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-foreground">{item.origin} <span className="text-muted-foreground mx-1">â†’</span> {item.destination}</div>
+                        <div className="text-sm text-foreground">{item.origin} <span className="text-muted-foreground mx-1">→</span> {item.destination}</div>
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="text-sm text-foreground">{item.volume}</div>
@@ -231,16 +231,15 @@ export default function LiveBoard() {
                         <div className="text-sm text-muted-foreground">{item.incoterm || 'FOB'}</div>
                       </td>
                       <td className="py-4 px-6 text-center">
-                        {myCompanyId && item.companyId !== myCompanyId && (
+                        {myCompanyId && item.companyId === myCompanyId ? (
+                          <span className="text-[0.65rem] text-muted-foreground uppercase font-mono px-3 py-1 bg-white/5 rounded">Your Listing</span>
+                        ) : (
                           <Button 
                             onClick={() => setSelectedItem(item)}
-                            className="h-8 px-4 text-xs opacity-0 group-hover:opacity-100"
+                            className="h-8 px-4 text-xs font-medium bg-primary text-background hover:bg-primary/90 transition-all"
                           >
                             {item.type === 'BUY' ? 'Submit Bid' : 'Negotiate'}
                           </Button>
-                        )}
-                        {myCompanyId && item.companyId === myCompanyId && (
-                          <span className="text-[0.65rem] text-muted-foreground uppercase font-mono">Your Listing</span>
                         )}
                       </td>
                     </tr>
