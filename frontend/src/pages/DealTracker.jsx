@@ -1,9 +1,11 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../config/firebase";
+import { API_BASE } from "../utils/api";
 import { Loader2 } from "lucide-react";
 
 export default function DealTracker() {
@@ -15,14 +17,20 @@ export default function DealTracker() {
   const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
-    fetchOrder();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        fetchOrder(currentUser);
+      }
+    });
+    return () => unsubscribe();
   }, [id]);
 
-  const fetchOrder = async () => {
+  const fetchOrder = async (currentUser) => {
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const activeUser = currentUser || auth.currentUser;
+      const token = await activeUser?.getIdToken();
       if (!token) return;
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/orders/${id}`, {
+      const res = await fetch(`${API_BASE}/api/orders/${id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {

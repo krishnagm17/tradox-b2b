@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck, X } from "lucide-react";
+import { toast } from "sonner";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { API_BASE, WS_BASE } from "../utils/api";
@@ -221,9 +222,13 @@ export default function NegotiationRoom() {
   };
 
   const handleAcceptOffer = async (versionNum) => {
+    const toastId = toast.loading("Accepting formal offer and creating contract...");
     try {
       const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
+      if (!token) {
+        toast.error("Authentication required.", { id: toastId });
+        return;
+      }
 
       const res = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/accept`, {
         method: "POST",
@@ -236,11 +241,17 @@ export default function NegotiationRoom() {
 
       if (res.ok) {
         const newOrder = await res.json();
-        setRoom(prev => ({...prev, status: "ACCEPTED"}));
-        navigate(`/deals/${newOrder.id}`);
+        toast.success(`Formal Offer v${versionNum} Accepted! Redirecting to Deal Tracker...`, { id: toastId });
+        setRoom(prev => ({ ...prev, status: "ACCEPTED" }));
+        setTimeout(() => {
+          navigate(`/deals/${newOrder.id}`);
+        }, 1200);
+      } else {
+        toast.error("Failed to accept offer. Server error.", { id: toastId });
       }
     } catch (err) {
       console.error("Failed to accept offer", err);
+      toast.error("Error accepting offer. Please try again.", { id: toastId });
     }
   };
 
@@ -522,6 +533,64 @@ export default function NegotiationRoom() {
             </div>
           )}
         </div>
+
+        {/* Mobile Offer Form Modal */}
+        {showOfferForm && (
+          <div className="lg:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 relative">
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-border">
+                <h2 className="text-sm font-heading font-medium">Negotiation Toolkit</h2>
+                <button onClick={() => setShowOfferForm(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={submitOffer} className="space-y-4">
+                <div>
+                  <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">Unit Price (USD) *</label>
+                  <input type="number" required className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.price} onChange={e => setOfferData({...offerData, price: e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">Quantity *</label>
+                    <input type="number" required className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.quantity} onChange={e => setOfferData({...offerData, quantity: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">MOQ *</label>
+                    <input type="number" required className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.moq} onChange={e => setOfferData({...offerData, moq: e.target.value})} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">Incoterms</label>
+                    <input type="text" className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.incoterms} onChange={e => setOfferData({...offerData, incoterms: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">Payment Terms</label>
+                    <input type="text" className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.payment_terms} onChange={e => setOfferData({...offerData, payment_terms: e.target.value})} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">Delivery Date / Est</label>
+                  <input type="text" className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.delivery_date} onChange={e => setOfferData({...offerData, delivery_date: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase mb-1">Destination Port</label>
+                  <input type="text" className="w-full bg-input border border-border rounded-md h-10 px-3 text-sm text-foreground" value={offerData.destination} onChange={e => setOfferData({...offerData, destination: e.target.value})} />
+                </div>
+                
+                <div className="pt-4 border-t border-border">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-[0.65rem] font-mono text-muted-foreground uppercase">Est. Total</span>
+                    <span className="text-primary font-mono">${((parseFloat(offerData.price) || 0) * (parseFloat(offerData.quantity) || 0)).toLocaleString()}</span>
+                  </div>
+                  <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-foreground font-semibold rounded-md h-10 transition-colors text-sm">
+                    Sign & Submit Offer
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

@@ -349,14 +349,38 @@ async def kyb(token_data: dict = Depends(verify_token)):
 @app.post("/api/negotiations/rooms/{room_id}/accept", response_model=Order)
 async def accept_offer(room_id: str, data: dict, token_data: dict = Depends(verify_token)):
     db = get_db()
-    version = data.get("version")
-    # minimal mock to avoid massive query rewrite for order acceptance
-    return Order(buyerCompanyId="", supplierCompanyId="", negotiationId=room_id, totalAmount=0)
+    uid = token_data.get("uid")
+    version = data.get("version", 1)
+    
+    # Update room status to ACCEPTED
+    db.table("negotiation_rooms").update({"status": "ACCEPTED"}).eq("id", room_id).execute()
+    
+    # Insert system message confirming deal acceptance
+    msg = Message(room_id=room_id, sender_id="system", content=f"Formal Offer v{version} was ACCEPTED. Contract generated.")
+    db.table("messages").insert({
+        "id": msg.id,
+        "room_id": msg.room_id,
+        "sender_id": msg.sender_id,
+        "content": msg.content,
+        "timestamp": msg.timestamp
+    }).execute()
+
+    try:
+        await manager.broadcast_to_room(room_id, {"type": "chat", "message": msg.model_dump()})
+    except Exception as e:
+        print("WebSocket broadcast error:", e)
+    
+    order = Order(id=str(uuid.uuid4()), buyerCompanyId="", supplierCompanyId="", negotiationId=room_id, totalAmount=0)
+    return order
 
 @app.get("/api/orders/me", response_model=List[Order])
 async def get_my_orders():
     return []
 
+@app.get("/api/orders/{order_id}", response_model=Order)
+async def get_order(order_id: str, token_data: dict = Depends(verify_token)):
+    return Order(id=order_id, buyerCompanyId="", supplierCompanyId="", negotiationId="", stage=1, status="ACTIVE", totalAmount=968.0)
+
 @app.post("/api/orders/{order_id}/stage")
-async def update_order_stage():
+async def update_order_stage(order_id: str):
     return {"status": "success"}
