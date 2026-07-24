@@ -477,7 +477,14 @@ export default function AdminKyb() {
                       </span>
                       <span className="flex items-center gap-1.5 font-medium">
                         <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        Date: {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                        Date: {(() => {
+                          try {
+                            const d = new Date(sub.submittedAt);
+                            return !isNaN(d.getTime()) ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Recently";
+                          } catch {
+                            return "Recently";
+                          }
+                        })()}
                       </span>
                     </div>
                     {(sub.gst || sub.iec || sub.country) && (
