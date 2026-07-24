@@ -52,7 +52,18 @@ export default function Login() {
       }
     } catch (err) {
       console.error("Google Sign In Error:", err);
-      setError("Google Sign-In failed. Please try again.");
+      if (err.code === "auth/account-exists-with-different-credential") {
+        const pendingEmail = err.customData?.email || "";
+        if (pendingEmail) setEmail(pendingEmail);
+        toast.info(`An account with ${pendingEmail || "this email"} already exists. Please log in with your email & password below.`);
+        setError("Account already exists with email/password. Please enter your password to log in.");
+      } else if (err.code === "auth/popup-closed-by-user") {
+        toast.info("Google sign-in window was closed.");
+      } else if (err.code === "auth/popup-blocked") {
+        setError("Google popup was blocked by your browser. Please enable popups and try again.");
+      } else {
+        setError(err.message ? err.message.replace("Firebase: ", "").replace(/\s*\(.*\)/, "") : "Google Sign-In failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

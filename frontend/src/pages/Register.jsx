@@ -110,8 +110,19 @@ export default function Register() {
       toast.info("Google account verified! Please enter your mobile number to complete verification.");
       setStep(2);
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Google Sign-In failed. Please try again or use email/password.");
+      console.error("Google Sign-In Error:", err);
+      if (err.code === "auth/account-exists-with-different-credential") {
+        const pendingEmail = err.customData?.email || "";
+        if (pendingEmail) setEmail(pendingEmail);
+        toast.info(`An account with ${pendingEmail || "this email"} already exists. Redirecting to Login...`);
+        setTimeout(() => navigate("/login"), 1500);
+      } else if (err.code === "auth/popup-closed-by-user") {
+        toast.info("Google sign-in window was closed.");
+      } else if (err.code === "auth/popup-blocked") {
+        setErrorMsg("Google popup was blocked by your browser. Please enable popups and try again.");
+      } else {
+        setErrorMsg(err.message ? err.message.replace("Firebase: ", "").replace(/\s*\(.*\)/, "") : "Google Sign-In failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
