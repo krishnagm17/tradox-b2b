@@ -9,6 +9,8 @@ import {
   Lock, Key, UserPlus, Trash2, ShieldAlert
 } from "lucide-react";
 
+import Sidebar from "../components/Sidebar";
+
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 // Super Owners list — ONLY these two owners can add or delete authorized admin users
@@ -373,8 +375,10 @@ export default function AdminKyb() {
   const rejected = submissions.filter(s => s.kybStatus === "REJECTED").length;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Top Bar */}
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        {/* Top Bar */}
       <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate("/dashboard")} className="text-slate-400 hover:text-white transition-colors">
@@ -701,6 +705,7 @@ export default function AdminKyb() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

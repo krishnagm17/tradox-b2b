@@ -33,6 +33,9 @@ function App() {
           <Route path="/negotiation/:room_id" element={<NegotiationRoom />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/admin/kyb" element={<AdminKyb />} />
+          <Route path="/admin-kyb" element={<AdminKyb />} />
+          <Route path="/admin" element={<AdminKyb />} />
+          <Route path="/kyb-approvals" element={<AdminKyb />} />
           {/* User Account Routes */}
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
