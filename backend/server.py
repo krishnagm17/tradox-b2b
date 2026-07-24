@@ -230,18 +230,31 @@ async def get_me(token_data: dict = Depends(verify_token)):
             
     role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else (u.get("role") if u.get("role") != "ADMIN" else "TRADER")
 
-    return User(
-        id=u["id"],
-        firebase_uid=u["firebase_uid"],
-        companyId=u["companyId"],
-        name=u.get("name") or token_data.get("name") or "Trader",
-        email=u["email"],
-        phone=u.get("phone"),
-        role=role,
-        kybStatus=kyb_status,
-        companyName=comp_name,
-        company_name=comp_name
-    )
+@app.patch("/api/users/me", response_model=User)
+async def update_me(data: dict = Body(...), token_data: dict = Depends(verify_token)):
+    db = get_db()
+    uid = token_data.get("uid")
+    user_email = token_data.get("email", "").strip().lower()
+    
+    update_data = {}
+    if "name" in data and data["name"]:
+        update_data["name"] = data["name"].strip()
+    if "phone" in data and data["phone"]:
+        update_data["phone"] = data["phone"].strip()
+        
+    res = db.table("users").select("*").eq("firebase_uid", uid).execute()
+    if not res.data and user_email:
+        res = db.table("users").select("*").eq("email", user_email).execute()
+        
+    if res.data:
+        u_id = res.data[0]["id"]
+        if update_data:
+            try:
+                db.table("users").update(update_data).eq("id", u_id).execute()
+            except Exception as e:
+                print("Notice updating user me:", e)
+                
+    return await get_me(token_data)
 
 @app.get("/api/companies/me", response_model=Company)
 async def get_my_company(token_data: dict = Depends(verify_token)):
