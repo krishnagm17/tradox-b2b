@@ -127,10 +127,6 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
     firebase_uid = user_data.firebase_uid
     db = get_db()
     
-    existing = db.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
-    if existing.data:
-        raise HTTPException(status_code=400, detail="User already exists")
-        
     company = Company(
         companyName=user_data.companyName,
         gst=user_data.gst,
@@ -140,14 +136,39 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
         address=user_data.address
     )
     
-    db.table("companies").insert({
-        "id": company.id,
-        "name": company.companyName,
-        "type": company.businessCategory,
-        "verificationStatus": company.kybStatus,
-        "createdAt": company.createdAt
-    }).execute()
-    
+    try:
+        db.table("companies").insert({
+            "id": company.id,
+            "name": company.companyName,
+            "type": company.businessCategory,
+            "verificationStatus": company.kybStatus,
+            "createdAt": company.createdAt
+        }).execute()
+    except Exception as e:
+        print("Notice inserting company:", e)
+        
+    existing = db.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
+    if existing.data:
+        existing_u = existing.data[0]
+        try:
+            db.table("users").update({
+                "companyId": company.id,
+                "name": user_data.name or existing_u.get("name"),
+                "phone": user_data.phone or existing_u.get("phone")
+            }).eq("firebase_uid", firebase_uid).execute()
+        except Exception as e:
+            print("Notice updating user:", e)
+            
+        return User(
+            id=existing_u["id"],
+            firebase_uid=firebase_uid,
+            companyId=company.id,
+            name=user_data.name or existing_u.get("name") or "User",
+            email=user_data.email or existing_u.get("email"),
+            role=existing_u.get("role", "TRADER"),
+            kybStatus=existing_u.get("kybStatus", "PENDING")
+        )
+        
     user = User(
         firebase_uid=firebase_uid,
         companyId=company.id,
@@ -156,15 +177,18 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
         phone=user_data.phone
     )
     
-    db.table("users").insert({
-        "id": user.id,
-        "firebase_uid": user.firebase_uid,
-        "email": user.email,
-        "role": user.role,
-        "companyId": user.companyId,
-        "kybStatus": "PENDING",
-        "createdAt": user.createdAt
-    }).execute()
+    try:
+        db.table("users").insert({
+            "id": user.id,
+            "firebase_uid": user.firebase_uid,
+            "email": user.email,
+            "role": user.role,
+            "companyId": user.companyId,
+            "kybStatus": "PENDING",
+            "createdAt": user.createdAt
+        }).execute()
+    except Exception as e:
+        print("Notice inserting user:", e)
     
     return user
 

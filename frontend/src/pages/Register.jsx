@@ -277,12 +277,18 @@ export default function Register() {
 
       if (res.ok) {
         localStorage.setItem("step3_complete", "true");
-        toast.success("Account created! Welcome to TradoxB2B.", { id: toastId });
+        toast.success("Registration complete! Welcome to TradoxB2B.", { id: toastId });
         navigate("/dashboard");
       } else {
         const err = await res.json().catch(() => ({}));
-        setErrorMsg(err.detail || "Registration failed. Please try again.");
-        toast.dismiss(toastId);
+        if (err.detail === "User already exists") {
+          localStorage.setItem("step3_complete", "true");
+          toast.success("Business profile updated! Redirecting to dashboard...", { id: toastId });
+          navigate("/dashboard");
+        } else {
+          setErrorMsg(err.detail || "Registration failed. Please try again.");
+          toast.dismiss(toastId);
+        }
       }
     } catch (err) {
       console.error(err);
