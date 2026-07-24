@@ -137,8 +137,15 @@ async def get_kyb_status(token_data: dict = Depends(verify_token)):
 
 def verify_admin(token_data: dict):
     uid = token_data.get("uid")
+    email = token_data.get("email")
     if not uid:
         raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    # Hardcoded Platform Owners bypass DB check
+    SUPER_OWNERS = ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"]
+    if email in SUPER_OWNERS:
+        return {"id": "super", "role": "OWNER", "email": email, "firebase_uid": uid}
+        
     admin_check = supabase.table("admin_users").select("*").eq("firebase_uid", uid).execute()
     if not admin_check.data:
         raise HTTPException(status_code=403, detail="Admin access required")
