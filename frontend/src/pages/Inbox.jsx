@@ -103,23 +103,26 @@ export default function Inbox() {
       return {
         icon: <ShoppingCart className="w-5 h-5 text-blue-600" />,
         bg: "bg-blue-100",
-        type: "BUY Negotiation",
-        description: `Negotiating on RFQ · Room ${room.id.substring(0, 8)}`
+        type: "Buy Request Negotiation",
+        description: `Commodity: ${room.product_name || room.rfqId?.substring(0, 8) || "RFQ"}`,
+        rolePill: { text: "You are the Buyer", color: "text-blue-700 bg-blue-50 border-blue-200" }
       };
     }
     if (room.productId) {
       return {
         icon: <Package className="w-5 h-5 text-orange-600" />,
         bg: "bg-orange-100",
-        type: "SELL Negotiation",
-        description: `Negotiating on Product · Room ${room.id.substring(0, 8)}`
+        type: "Sell Offer Negotiation",
+        description: `Product: ${room.product_name || room.productId?.substring(0, 8) || "Product"}`,
+        rolePill: { text: "You are the Seller", color: "text-orange-700 bg-orange-50 border-orange-200" }
       };
     }
     return {
       icon: <MessageSquare className="w-5 h-5 text-slate-600" />,
       bg: "bg-slate-100",
       type: "Trade Negotiation",
-      description: `Room ${room.id.substring(0, 8)}`
+      description: `Room ID: ${room.id.substring(0, 12)}...`,
+      rolePill: null
     };
   };
 
@@ -138,12 +141,14 @@ export default function Inbox() {
     return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
   };
 
-  const getCounterparty = (room) => {
-    if (!myCompanyId) return room.buyerCompanyId || "Counterparty";
+  const getCounterpartyLabel = (room) => {
+    if (!myCompanyId) return { role: "Counterparty", name: "Unknown" };
     if (room.buyerCompanyId === myCompanyId) {
-      return `Supplier: ${(room.supplierCompanyId || "Unknown").substring(0, 12)}...`;
+      // I am the buyer → counterparty is the supplier
+      return { role: "Seller / Supplier", name: room.supplier_name || room.supplierCompanyId?.substring(0, 16) || "Unknown Supplier" };
     }
-    return `Buyer: ${(room.buyerCompanyId || "Unknown").substring(0, 12)}...`;
+    // I am the seller → counterparty is the buyer
+    return { role: "Buyer", name: room.buyer_name || room.buyerCompanyId?.substring(0, 16) || "Unknown Buyer" };
   };
 
   const filtered = rooms.filter(room => {
@@ -240,12 +245,13 @@ export default function Inbox() {
               const label = getRoomLabel(room);
               const lastMsg = lastMessages[room.id];
               const timeStr = formatTime(room.createdAt || room.created_at);
+              const counterparty = getCounterpartyLabel(room);
 
               return (
                 <div
                   key={room.id}
                   onClick={() => navigate(`/negotiation/${room.id}`)}
-                  className="group cursor-pointer bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-sm rounded-2xl p-5 flex items-start gap-4 transition-all"
+                  className="group cursor-pointer bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-md rounded-2xl p-5 flex items-start gap-4 transition-all"
                 >
                   {/* Icon */}
                   <div className={`w-12 h-12 rounded-xl ${label.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
@@ -254,15 +260,29 @@ export default function Inbox() {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                    {/* Title row */}
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
                       <span className="text-sm font-bold text-slate-900">{label.type}</span>
                       {getStatusBadge(room.status)}
                     </div>
 
-                    {/* Counterparty */}
+                    {/* Role pill — tells user their role in this negotiation */}
+                    {label.rolePill && (
+                      <span className={`inline-block text-[0.65rem] font-bold border px-2 py-0.5 rounded-full mb-2 ${label.rolePill.color}`}>
+                        {label.rolePill.text}
+                      </span>
+                    )}
+
+                    {/* What is being negotiated */}
+                    <p className="text-xs font-semibold text-slate-700 mb-1">{label.description}</p>
+
+                    {/* Counterparty — shows WHO you are talking to */}
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-xs text-slate-500 font-mono">{getCounterparty(room)}</span>
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-xs text-slate-500">
+                        <span className="font-medium text-slate-600">{counterparty.role}:</span>{" "}
+                        {counterparty.name}
+                      </span>
                     </div>
 
                     {/* Last message preview */}
@@ -277,7 +297,7 @@ export default function Inbox() {
                     )}
 
                     {!lastMsg && (
-                      <p className="text-xs text-slate-400 italic">No messages yet — start the negotiation</p>
+                      <p className="text-xs text-slate-400 italic">No messages yet — click to start the negotiation</p>
                     )}
                   </div>
 
@@ -297,6 +317,7 @@ export default function Inbox() {
             })}
           </div>
         )}
+
 
         {/* No results from search */}
         {!loading && rooms.length > 0 && filtered.length === 0 && (
