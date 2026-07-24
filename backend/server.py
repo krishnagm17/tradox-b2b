@@ -274,6 +274,8 @@ async def get_me(token_data: dict = Depends(verify_token)):
     user_resp["kybStatus"] = kyb_status
     user_resp["companyName"] = comp_name
     user_resp["company_name"] = comp_name
+    user_resp["name"] = u.get("name") or user_name
+    user_resp["companyId"] = u.get("companyId") or "comp_default"
     
     return user_resp
 
