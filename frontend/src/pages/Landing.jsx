@@ -403,8 +403,14 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-slate-900">
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-bold text-sm flex items-center justify-center">T</div>
-                <span className="text-lg font-heading font-bold text-white">Tradox<span className="text-emerald-400">B2B</span></span>
+                <img 
+                  src="/logo.jpg" 
+                  alt="TradoxB2B Logo" 
+                  className="w-8 h-8 rounded-lg object-cover shadow-sm"
+                />
+                <div className="flex flex-col">
+                  <span className="text-lg font-heading font-bold text-white leading-none">Tradox<span className="text-emerald-400">B2B</span></span>
+                </div>
               </div>
               <p className="text-slate-400 leading-relaxed">The direct B2B wholesale platform for global bulk commodity negotiation.</p>
             </div>
