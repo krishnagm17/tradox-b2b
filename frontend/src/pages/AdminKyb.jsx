@@ -5,7 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { toast } from "sonner";
 import {
   Shield, CheckCircle2, XCircle, Clock, ArrowLeft,
-  Building2, FileText, User, Download, Loader2, Search
+  Building2, FileText, User, Download, Loader2, Search, Phone, Mail
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
@@ -50,9 +50,10 @@ export default function AdminKyb() {
         if (Array.isArray(rawData)) {
           const formatted = rawData.map((item, idx) => ({
             id: item.id || item.userId || `sub-${idx}`,
-            companyName: item.companyName || item.userEmail?.split("@")[0] || "Registered Company",
-            userEmail: item.userEmail || "trader@tradox.b2b",
-            userName: item.userName || item.userEmail?.split("@")[0] || "Trader",
+            companyName: item.companyName || "Company Application",
+            userEmail: item.userEmail || "No email provided",
+            userName: item.userName || "Applicant",
+            mobile: item.mobile || item.phone || "No phone provided",
             submittedAt: item.submittedAt || new Date().toISOString(),
             kybStatus: item.kybStatus || "SUBMITTED",
             documentName: item.documentName || "Certificate_of_Incorporation.pdf",
@@ -269,22 +270,35 @@ export default function AdminKyb() {
                     <Building2 className="w-6 h-6 text-slate-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
                       <h3 className="text-base font-bold text-slate-900 truncate">{sub.companyName}</h3>
                       <span className={`flex items-center gap-1 text-[0.65rem] font-bold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusColor[sub.kybStatus] || statusColor.PENDING}`}>
                         {statusIcon[sub.kybStatus]} {sub.kybStatus}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                      <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{sub.userName}</span>
-                      <span>{sub.userEmail}</span>
-                      {sub.country && <span>🌍 {sub.country}</span>}
-                      <span>Submitted: {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 mb-2">
+                      <span className="flex items-center gap-1.5 font-semibold text-slate-800">
+                        <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        Applicant: <span className="font-bold">{sub.userName}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        {sub.userEmail}
+                      </span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        Mobile: <span className="font-mono">{sub.mobile}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        Date: {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                      </span>
                     </div>
-                    {(sub.gst || sub.iec) && (
-                      <div className="mt-1 text-xs text-slate-500">
-                        {sub.gst && <span className="mr-3">GST: <span className="font-mono font-bold">{sub.gst}</span></span>}
-                        {sub.iec && <span>IEC: <span className="font-mono font-bold">{sub.iec}</span></span>}
+                    {(sub.gst || sub.iec || sub.country) && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {sub.gst && <span className="bg-slate-100 text-slate-800 font-mono font-bold px-2 py-0.5 rounded border border-slate-200">GST: {sub.gst}</span>}
+                        {sub.iec && <span className="bg-slate-100 text-slate-800 font-mono font-bold px-2 py-0.5 rounded border border-slate-200">IEC: {sub.iec}</span>}
+                        {sub.country && <span className="bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded border border-emerald-200">Country: {sub.country}</span>}
                       </div>
                     )}
                   </div>

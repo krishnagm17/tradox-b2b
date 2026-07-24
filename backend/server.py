@@ -564,21 +564,28 @@ async def get_admin_kyb():
         status = u.get("kybStatus") or comp.get("verificationStatus") or "SUBMITTED"
         doc_name = comp.get("documentName") or u.get("documentName") or "Certificate_of_Incorporation.pdf"
         doc_url = comp.get("documentUrl") or u.get("documentUrl")
-        comp_name = comp.get("companyName") or comp.get("name") or u.get("company_name") or u.get("email", "").split("@")[0]
+        
+        comp_name = comp.get("name") or comp.get("companyName") or u.get("company_name") or u.get("companyName") or f"Company #{u.get('companyId', u.get('id', ''))[:8]}"
+        user_email = u.get("email") or u.get("userEmail") or "Not Provided"
+        user_name = u.get("name") or u.get("full_name") or u.get("username") or user_email.split("@")[0]
+        user_mobile = u.get("mobile") or u.get("mobile_number") or u.get("phone") or comp.get("phone") or "Not Provided"
+        gst_num = comp.get("gst") or u.get("gst") or comp.get("gst_number")
+        iec_num = comp.get("iec") or u.get("iec") or comp.get("iec_number")
         
         result.append({
             "id": u.get("id"),
             "userId": u.get("id"),
             "companyName": comp_name,
-            "userEmail": u.get("email", ""),
-            "userName": u.get("name") or u.get("full_name") or u.get("email", "").split("@")[0],
-            "submittedAt": comp.get("submittedAt") or u.get("submittedAt") or datetime.utcnow().isoformat(),
+            "userEmail": user_email,
+            "userName": user_name,
+            "mobile": user_mobile,
+            "submittedAt": comp.get("submittedAt") or u.get("submittedAt") or u.get("created_at") or datetime.utcnow().isoformat(),
             "kybStatus": status,
             "documentName": doc_name,
             "documentUrl": doc_url,
             "country": comp.get("country") or u.get("country") or "India",
-            "gst": comp.get("gst"),
-            "iec": comp.get("iec")
+            "gst": gst_num,
+            "iec": iec_num
         })
     return result
 
