@@ -222,12 +222,22 @@ export default function AdminKyb() {
   };
 
   const handleViewDocument = (sub) => {
-    let rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
-    if (!rawUrl || rawUrl.length < 10) {
-      // Clean fallback sample Base64 PDF
-      rawUrl = "data:application/pdf;base64,JVBERi0xLjQKJSDl4uXmA%2B...";
+    // Try to get document URL from submission, then from localStorage (only works if same browser as submitter)
+    const rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+
+    // If no real document URL, show the modal with a "no document" state
+    if (!rawUrl || rawUrl.length < 20 || rawUrl === "null") {
+      setPreviewDoc({
+        name: sub.documentName || "letter1.pdf",
+        url: null,
+        rawUrl: null,
+        company: sub.companyName,
+        applicant: sub.userName
+      });
+      return;
     }
 
+    // If it's a data URL, convert to Blob URL so Chrome iframe can render it
     let finalViewerUrl = rawUrl;
     if (rawUrl.startsWith("data:")) {
       try {
@@ -243,7 +253,8 @@ export default function AdminKyb() {
         const blob = new Blob([u8arr], { type: mime });
         finalViewerUrl = URL.createObjectURL(blob);
       } catch (e) {
-        console.error("Notice converting data URL to Blob URL:", e);
+        console.error("Blob conversion error:", e);
+        finalViewerUrl = null;
       }
     }
 
@@ -259,8 +270,8 @@ export default function AdminKyb() {
   const handleDownloadDocument = (sub) => {
     let rawUrl = sub.url || sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
     const filename = sub.name || sub.documentName || "Incorporation_Certificate.pdf";
-    if (!rawUrl || rawUrl.length < 10) {
-      toast.error("No document file found.");
+    if (!rawUrl || rawUrl.length < 20 || rawUrl === "null") {
+      toast.error("Document not available for download. The file was uploaded from a different browser/device.", { duration: 5000 });
       return;
     }
 
@@ -721,11 +732,29 @@ export default function AdminKyb() {
 
             {/* Document Viewer Frame */}
             <div className="flex-1 bg-slate-100 p-3 overflow-hidden flex items-center justify-center">
-              <iframe
-                src={previewDoc.url}
-                title={previewDoc.name}
-                className="w-full h-full rounded-2xl border border-slate-300 bg-white shadow-inner"
-              />
+              {previewDoc.url ? (
+                <iframe
+                  src={previewDoc.url}
+                  title={previewDoc.name}
+                  className="w-full h-full rounded-2xl border border-slate-300 bg-white shadow-inner"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-4 text-center p-8">
+                  <div className="w-20 h-20 bg-amber-50 border-2 border-amber-200 rounded-full flex items-center justify-center">
+                    <FileText className="w-9 h-9 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800 mb-2">Document Preview Not Available</h3>
+                    <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
+                      The KYB document <strong className="text-slate-700">{previewDoc.name}</strong> was uploaded from a different browser or device. 
+                      The file content is not accessible from the admin panel.
+                    </p>
+                    <p className="text-xs text-amber-600 mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+                      To view this document, ask the applicant to re-upload, or check the backend file storage.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
