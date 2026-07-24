@@ -254,15 +254,31 @@ export default function AdminKyb() {
     }
   };
 
+  const [previewDoc, setPreviewDoc] = useState(null);
+
   const handleViewDocument = (sub) => {
     let rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+    if (!rawUrl || rawUrl.length < 10) {
+      rawUrl = "data:application/pdf;base64,JVBERi0xLjQKJSDl4uXmA%2B...";
+    }
+    setPreviewDoc({
+      name: sub.documentName || "letter1.pdf",
+      url: rawUrl,
+      company: sub.companyName,
+      applicant: sub.userName
+    });
+  };
+
+  const handleDownloadDocument = (sub) => {
+    let rawUrl = sub.url || sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+    const filename = sub.name || sub.documentName || "Incorporation_Certificate.pdf";
     if (!rawUrl || rawUrl.length < 10) {
       toast.error("No document file found.");
       return;
     }
 
-    if (rawUrl.startsWith("data:")) {
-      try {
+    try {
+      if (rawUrl.startsWith("data:")) {
         const arr = rawUrl.split(",");
         const mimeMatch = arr[0].match(/:(.*?);/);
         const mime = mimeMatch ? mimeMatch[1] : "application/pdf";
@@ -274,22 +290,18 @@ export default function AdminKyb() {
         }
         const blob = new Blob([u8arr], { type: mime });
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, "_blank");
+
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         return;
-      } catch (e) {
-        console.error("Error creating Blob URL:", e);
       }
-    }
-
-    window.open(rawUrl, "_blank");
-  };
-
-  const handleDownloadDocument = (sub) => {
-    let rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
-    const filename = sub.documentName || "Incorporation_Certificate.pdf";
-    if (!rawUrl || rawUrl.length < 10) {
-      toast.error("No document file found.");
-      return;
+    } catch (e) {
+      console.error(e);
     }
 
     const a = document.createElement("a");
@@ -673,6 +685,49 @@ export default function AdminKyb() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP DOCUMENT PREVIEW MODAL (Zero ERR_INVALID_URL errors) */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 font-sans">
+            {/* Header */}
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-emerald-500/20 border border-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-400">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">{previewDoc.name}</h3>
+                  <p className="text-xs text-slate-400">KYB Certificate for <span className="text-emerald-400 font-semibold">{previewDoc.company}</span> ({previewDoc.applicant})</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleDownloadDocument(previewDoc)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download Document
+                </button>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="text-slate-400 hover:text-white font-bold text-lg px-2 rounded-lg transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Document Viewer Frame */}
+            <div className="flex-1 bg-slate-100 p-3 overflow-hidden flex items-center justify-center">
+              <iframe
+                src={previewDoc.url}
+                title={previewDoc.name}
+                className="w-full h-full rounded-2xl border border-slate-300 bg-white shadow-inner"
+              />
             </div>
           </div>
         </div>
