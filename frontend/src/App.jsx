@@ -24,6 +24,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/live-board" element={<LiveBoard />} />
+          <Route path="/kyb" element={<KybWizard />} />
+          <Route path="/kyc" element={<KybWizard />} />
           <Route path="/onboarding/kyb" element={<KybWizard />} />
           <Route path="/deals/:id" element={<DealTracker />} />
           <Route path="/trade-tools" element={<TradeTools />} />
