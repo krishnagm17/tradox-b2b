@@ -67,24 +67,54 @@ export default function AdminKyb() {
           .select('*');
           
         if (!error && usersData) {
-          usersData.forEach(data => {
-            const rawStatus = (data.kybStatus || '').trim().toUpperCase();
-            if (!rawStatus || rawStatus === 'PENDING') return; // skip unsubmitted or pending
-            const uid = data.firebase_uid || data.id || data.email;
+          usersData.forEach(userRow => {
+            if (!userRow.kybStatus) return;
+
+            let status = 'PENDING';
+            let docName = 'Certificate.pdf';
+            let docUrl = null;
+            let submittedAt = userRow.createdAt || new Date().toISOString();
+            let userName = userRow.name || userRow.email?.split("@")[0] || "—";
+            let companyName = userRow.companyName || `${userName} Company`;
+            let mobile = userRow.phone || "Not Provided";
+            let rejectReason = null;
+
+            const strVal = String(userRow.kybStatus).trim();
+            if (strVal.startsWith('{')) {
+              try {
+                const meta = JSON.parse(strVal);
+                status = (meta.status || 'SUBMITTED').toUpperCase();
+                if (meta.docName) docName = meta.docName;
+                if (meta.docUrl) docUrl = meta.docUrl;
+                if (meta.submittedAt) submittedAt = meta.submittedAt;
+                if (meta.userName) userName = meta.userName;
+                if (meta.companyName) companyName = meta.companyName;
+                if (meta.mobile) mobile = meta.mobile;
+                if (meta.rejectReason) rejectReason = meta.rejectReason;
+              } catch {
+                status = strVal.toUpperCase();
+              }
+            } else {
+              status = strVal.toUpperCase();
+            }
+
+            if (status === 'PENDING') return; // skip unsubmitted
+
+            const uid = userRow.firebase_uid || userRow.id || userRow.email;
             fsMap.set(uid, {
               id: uid,
-              companyName:  data.companyName  || data.company_name || "Registered Company",
-              userEmail:    data.email        || "—",
-              userName:     data.name         || data.email?.split("@")[0] || "—",
-              mobile:       data.phone        || "Not Provided",
-              submittedAt:  data.submittedAt  || data.updatedAt || new Date().toISOString(),
-              kybStatus:    rawStatus,
-              documentName: data.documentName || "Certificate.pdf",
-              documentUrl:  data.documentUrl  || null,
-              country:      "India",
-              gst:          null,
-              iec:          null,
-              rejectReason: data.rejectReason || null,
+              companyName,
+              userEmail: userRow.email || "—",
+              userName,
+              mobile,
+              submittedAt,
+              kybStatus: status,
+              documentName: docName,
+              documentUrl: docUrl,
+              country: "India",
+              gst: null,
+              iec: null,
+              rejectReason,
             });
           });
         }
@@ -177,13 +207,21 @@ export default function AdminKyb() {
       // Write to Supabase
       try {
         const { supabase } = await import('../config/supabase');
-        await supabase
-          .from('users')
-          .update({
-            kybStatus: 'VERIFIED',
-            updatedAt: new Date().toISOString()
-          })
-          .eq('firebase_uid', userId);
+        const { data: rows } = await supabase.from('users').select('*').or(`firebase_uid.eq.${userId},id.eq.${userId}`);
+        if (rows && rows.length > 0) {
+          const row = rows[0];
+          let updatedPayload = "VERIFIED";
+          if (row.kybStatus && String(row.kybStatus).trim().startsWith('{')) {
+            try {
+              const meta = JSON.parse(row.kybStatus);
+              meta.status = "VERIFIED";
+              updatedPayload = JSON.stringify(meta);
+            } catch { updatedPayload = "VERIFIED"; }
+          }
+          await supabase.from('users').update({ kybStatus: updatedPayload }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
+        } else {
+          await supabase.from('users').update({ kybStatus: "VERIFIED" }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
+        }
       } catch (fsErr) { console.warn("Supabase approve notice:", fsErr); }
       // Backend API
       const token = await auth.currentUser?.getIdToken().catch(() => null);
@@ -218,14 +256,22 @@ export default function AdminKyb() {
       // Write to Supabase
       try {
         const { supabase } = await import('../config/supabase');
-        await supabase
-          .from('users')
-          .update({
-            kybStatus: 'REJECTED',
-            rejectReason: reason,
-            updatedAt: new Date().toISOString()
-          })
-          .eq('firebase_uid', userId);
+        const { data: rows } = await supabase.from('users').select('*').or(`firebase_uid.eq.${userId},id.eq.${userId}`);
+        if (rows && rows.length > 0) {
+          const row = rows[0];
+          let updatedPayload = "REJECTED";
+          if (row.kybStatus && String(row.kybStatus).trim().startsWith('{')) {
+            try {
+              const meta = JSON.parse(row.kybStatus);
+              meta.status = "REJECTED";
+              meta.rejectReason = reason;
+              updatedPayload = JSON.stringify(meta);
+            } catch { updatedPayload = "REJECTED"; }
+          }
+          await supabase.from('users').update({ kybStatus: updatedPayload }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
+        } else {
+          await supabase.from('users').update({ kybStatus: "REJECTED" }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
+        }
       } catch (fsErr) { console.warn("Supabase reject notice:", fsErr); }
       // Backend API
       const token = await auth.currentUser?.getIdToken().catch(() => null);
