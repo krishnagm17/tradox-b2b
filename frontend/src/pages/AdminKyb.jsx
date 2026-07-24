@@ -203,7 +203,7 @@ export default function AdminKyb() {
       <div className="flex-1 overflow-auto">
         <div className="p-8 max-w-7xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-[#0B1220] flex items-center gap-3">
                 <Shield className="w-8 h-8 text-[#10B981]" />
@@ -219,8 +219,8 @@ export default function AdminKyb() {
           </div>
 
           {/* Stats & Search */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8 flex items-center justify-between">
-            <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex w-full sm:w-auto gap-2 p-1 bg-slate-100 rounded-xl overflow-x-auto">
               {["Pending", "Approved", "Rejected"].map(tab => (
                 <button
                   key={tab}
@@ -231,7 +231,7 @@ export default function AdminKyb() {
                 </button>
               ))}
             </div>
-            <div className="relative w-72">
+            <div className="relative w-full sm:w-72">
               <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="text" 
@@ -244,8 +244,8 @@ export default function AdminKyb() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-            <table className="w-full text-left">
+          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-x-auto">
+            <table className="w-full text-left min-w-[800px]">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
                 <tr>
                   <th className="p-4">Company Details</th>

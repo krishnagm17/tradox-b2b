@@ -240,8 +240,15 @@ export default function Login() {
       {/* Header */}
       <div className="text-center mb-8">
         <button onClick={() => navigate("/")} className="flex items-center justify-center gap-3 mx-auto mb-4 group">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold text-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">T</div>
-          <span className="text-2xl font-heading font-bold text-slate-900">Tradox<span className="text-emerald-600">B2B</span></span>
+          <img 
+            src="/logo.jpg" 
+            alt="TradoxB2B Logo" 
+            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-lg group-hover:scale-105 transition-transform"
+          />
+          <div className="flex flex-col text-left">
+            <span className="text-2xl font-heading font-bold tracking-tight leading-tight text-slate-900">Tradox<span className="text-emerald-600">B2B</span></span>
+            <span className="text-[0.6rem] font-mono tracking-[0.2em] text-slate-500 uppercase leading-none mt-0.5">Global Bulk Trade</span>
+          </div>
         </button>
         <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
         <p className="text-sm text-slate-500 mt-1">Sign in to your TradoxB2B account</p>

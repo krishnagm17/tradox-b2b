@@ -343,7 +343,7 @@ export default function CompanyDashboard() {
                   </Button>
                 </div>
                 
-                <div className="w-full overflow-hidden border border-border rounded-[3px] bg-white shadow-sm">
+                <div className="w-full overflow-x-auto border border-border rounded-[3px] bg-white shadow-sm">
                   <table className="w-full text-left border-collapse min-w-[900px]">
                     <thead>
                       <tr className="border-b border-border bg-slate-50">

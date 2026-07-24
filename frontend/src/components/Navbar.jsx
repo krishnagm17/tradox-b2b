@@ -174,14 +174,6 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
 
         {/* Right: Auth Controls */}
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 transition-all text-xs font-semibold shadow-sm"
-            title="Return to Home Page"
-          >
-            <Home className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="hidden sm:inline">Home</span>
-          </button>
 
           {user && !loading && (
             <>
