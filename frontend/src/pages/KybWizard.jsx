@@ -150,8 +150,8 @@ export default function KybWizard() {
                 company_name: fsComp,
                 user_name: fsName,
                 user_email: fsEmail,
-                gst_number: gst || null,
-                iec_number: iec || null,
+                gst_number: null,
+                iec_number: null,
                 document_url: docUrlToStore,
                 document_type: 'Certificate of Incorporation',
                 status: 'Pending',
@@ -172,8 +172,8 @@ export default function KybWizard() {
             userName: fsName,
             companyName: fsComp,
             mobile: fsPhone,
-            gst: gst || null,
-            iec: iec || null
+            gst: null,
+            iec: null
           });
 
           const { data: updateRes, error: updateErr } = await supabase

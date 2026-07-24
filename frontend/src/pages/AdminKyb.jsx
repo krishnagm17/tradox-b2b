@@ -57,6 +57,8 @@ export default function AdminKyb() {
       const latestUrl    = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
       const latestStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
 
+      const fsMap = new Map();
+
       // STEP 1: Read from primary kyb_requests table
       try {
         const { supabase } = await import('../config/supabase');
