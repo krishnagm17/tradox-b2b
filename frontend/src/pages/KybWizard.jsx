@@ -130,46 +130,89 @@ export default function KybWizard() {
     }
   };
 
-  // ─── SUCCESS STATE ─────────────────────────────────────────────────────────
+  React.useEffect(() => {
+    const savedDoc = localStorage.getItem("kyb_submitted_doc");
+    const savedStatus = localStorage.getItem("kyb_status");
+    if (savedDoc || savedStatus === "SUBMITTED" || savedStatus === "VERIFIED") {
+      setSubmitted(true);
+    }
+  }, []);
+
+  // ─── STATUS TRACKING SCREEN (FOR REGULAR USERS) ───────────────────────────
   if (submitted) {
+    const currentDoc = certFile?.name || localStorage.getItem("kyb_submitted_doc") || "Certificate_of_Incorporation.pdf";
+    const status = localStorage.getItem("kyb_status") || "SUBMITTED";
+
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-3">Documents Submitted!</h1>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6 text-left">
-            <div className="flex items-start gap-3">
-              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-amber-900 mb-1">Awaiting Admin Review</p>
-                <p className="text-xs text-amber-700">
-                  Your Certificate of Incorporation has been submitted. Our compliance team will manually review and approve
-                  your application within <strong>1–2 business days</strong>.
-                </p>
-                <p className="text-xs text-amber-700 mt-2">
-                  You'll receive an email notification at your registered email address once your account is verified.
-                </p>
+        <div className="max-w-md w-full text-center bg-white rounded-3xl border border-slate-200 p-8 shadow-xl">
+          {status === "VERIFIED" ? (
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+            </div>
+          ) : (
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
+            </div>
+          )}
+
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">KYB Verification Status</h1>
+          
+          {status === "VERIFIED" ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6 text-left">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-emerald-900 mb-1">✅ Approved by Platform Owner</p>
+                  <p className="text-xs text-emerald-700">
+                    Your Certificate of Incorporation has been verified. Your account is active for bulk commodity trading.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 text-left">
-            <div className="flex items-center gap-3 mb-2">
-              <FileText className="w-5 h-5 text-slate-500" />
-              <span className="text-sm font-semibold text-slate-900">Submitted Document</span>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 text-left">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900 mb-1">⏳ Awaiting Owner Approval</p>
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    Your document has been submitted successfully. <strong>Only the platform owner can review and approve KYB requests.</strong>
+                  </p>
+                  <p className="text-xs text-amber-700 mt-2 font-medium">
+                    You can track your status right here on this page.
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-slate-600">{certFile?.name}</p>
-            <p className="text-xs text-slate-400 mt-1">Certificate of Incorporation</p>
+          )}
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-left">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Uploaded Document</span>
+              <span className="text-[0.65rem] font-bold font-mono bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full">
+                {status}
+              </span>
+            </div>
+            <p className="text-sm font-bold text-slate-900 truncate">{currentDoc}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Certificate of Incorporation</p>
           </div>
 
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-colors"
-          >
-            Return to Dashboard
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-md"
+            >
+              Return to Dashboard
+            </button>
+            
+            <button
+              onClick={() => setSubmitted(false)}
+              className="w-full py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Upload Different Document
+            </button>
+          </div>
         </div>
       </div>
     );

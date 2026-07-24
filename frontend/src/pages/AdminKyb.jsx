@@ -259,8 +259,8 @@ export default function AdminKyb() {
           <div className="flex items-center gap-3">
             <Shield className="w-5 h-5 text-emerald-400" />
             <div>
-              <div className="text-sm font-bold">Admin — KYB Review Panel</div>
-              <div className="text-[0.65rem] text-slate-400 font-mono">Business Verification Dashboard</div>
+              <div className="text-sm font-bold">Platform Owner — KYB Approval Panel</div>
+              <div className="text-[0.65rem] text-emerald-400 font-mono">Exclusive Owner Review Panel · Only Owner Can Approve/Reject</div>
             </div>
           </div>
         </div>

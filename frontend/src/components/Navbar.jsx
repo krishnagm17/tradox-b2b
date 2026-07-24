@@ -233,13 +233,13 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                       <Edit3 className="w-4 h-4 text-emerald-400" />
                       Settings
                     </button>
-                    {/* KYB Approvals */}
+                    {/* KYB Verification & Status */}
                     <button 
-                      onClick={() => { setShowDropdown(false); navigate("/admin/kyb"); }}
+                      onClick={() => { setShowDropdown(false); navigate("/kyb"); }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
                     >
                       <Shield className="w-4 h-4 text-emerald-400" />
-                      KYB Approvals
+                      KYB Verification & Status
                     </button>
                     {/* Company Dashboard */}
                     <button 
