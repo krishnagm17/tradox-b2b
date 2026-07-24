@@ -60,10 +60,18 @@ export default function Register() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("step") === "3") {
       setStep(3);
+    } else if (params.get("step") === "2") {
+      setStep(2);
+      setIsGoogleAuth(true);
+      setEmailVerified(true); // Assuming they came from Google sign-in
     }
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        if (params.get("step") === "2") {
+          setFullName(user.displayName || "");
+          setEmail(user.email || "");
+        }
         const token = await user.getIdToken().catch(() => null);
         if (token) {
           const res = await fetch(`${API_BASE}/api/users/me`, {

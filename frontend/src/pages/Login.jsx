@@ -53,8 +53,8 @@ export default function Login() {
         toast.success("Welcome back! Redirecting to dashboard...");
         navigate("/dashboard");
       } else {
-        // User needs to complete registration steps (Mobile & Company GST/IEC)
-        navigate("/register");
+        toast.info("Please register first to continue.");
+        navigate("/register?step=2");
       }
     } catch (err) {
       console.error("Google Sign In Error:", err);
