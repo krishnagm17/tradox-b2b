@@ -267,6 +267,15 @@ async def get_me(token_data: dict = Depends(verify_token)):
             print("Notice reading company in get_me:", e)
             
     role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else (u.get("role") if u.get("role") != "ADMIN" else "TRADER")
+    
+    # Create response dictionary
+    user_resp = dict(u)
+    user_resp["role"] = role
+    user_resp["kybStatus"] = kyb_status
+    user_resp["companyName"] = comp_name
+    user_resp["company_name"] = comp_name
+    
+    return user_resp
 
 @app.patch("/api/users/me", response_model=User)
 async def update_me(data: dict = Body(...), token_data: dict = Depends(verify_token)):
