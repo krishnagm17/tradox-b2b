@@ -24,8 +24,19 @@ export default function AdminKyb() {
   const [isAdmin, setIsAdmin] = useState(true);
   const [isSuperOwner, setIsSuperOwner] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [submissions, setSubmissions] = useState([
-    {
+  const [submissions, setSubmissions] = useState(() => {
+    // Load from shared admin store (documents submitted on same browser)
+    try {
+      const adminStore = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
+      if (adminStore.length > 0) {
+        return adminStore.map(s => ({
+          ...s,
+          kybStatus: localStorage.getItem("kyb_status") || s.kybStatus || "SUBMITTED"
+        }));
+      }
+    } catch (e) { /* ignore */ }
+    // Fallback default card
+    return [{
       id: "local-user-1",
       companyName: "Krishna G M Company",
       userEmail: "krishnametri223344@gmail.com",
@@ -38,8 +49,8 @@ export default function AdminKyb() {
       country: "India",
       gst: null,
       iec: null
-    }
-  ]);
+    }];
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState({});
   const [rejectReasons, setRejectReasons] = useState({});
@@ -133,7 +144,35 @@ export default function AdminKyb() {
         });
       }
 
-      setSubmissions(formatted);
+      // Merge backend results with local admin store
+      const localAdminStore = (() => {
+        try { return JSON.parse(localStorage.getItem("kyb_admin_store") || "[]"); } catch { return []; }
+      })();
+
+      // Enrich formatted with local document URLs where backend has none
+      const enriched = formatted.map(item => {
+        if (!item.documentUrl) {
+          const local = localAdminStore.find(l => l.id === item.id || l.userEmail === item.userEmail);
+          if (local?.documentUrl) {
+            return { ...item, documentUrl: local.documentUrl, documentName: local.documentName || item.documentName };
+          }
+        }
+        return item;
+      });
+
+      // Add any local submissions not in backend results
+      const backendIds = new Set(enriched.map(i => i.id));
+      const backendEmails = new Set(enriched.map(i => i.userEmail));
+      for (const local of localAdminStore) {
+        if (!backendIds.has(local.id) && !backendEmails.has(local.userEmail)) {
+          enriched.push({
+            ...local,
+            kybStatus: localStorage.getItem("kyb_status") || local.kybStatus || "SUBMITTED"
+          });
+        }
+      }
+
+      setSubmissions(enriched.length > 0 ? enriched : localAdminStore);
     } catch (err) {
       console.error("Notice fetching KYB submissions:", err);
       setSubmissions([{
@@ -178,6 +217,11 @@ export default function AdminKyb() {
       setSubmissions(prev =>
         prev.map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s)
       );
+      // Persist to shared admin store
+      try {
+        const store = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
+        localStorage.setItem("kyb_admin_store", JSON.stringify(store.map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s)));
+      } catch (e) { /* ignore */ }
     } catch (err) {
       console.error(err);
       toast.success(`✓ ${companyName} has been APPROVED!`);
@@ -210,6 +254,11 @@ export default function AdminKyb() {
       setSubmissions(prev =>
         prev.map(s => s.id === userId ? { ...s, kybStatus: "REJECTED", rejectReason: reason } : s)
       );
+      // Persist to shared admin store
+      try {
+        const store = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
+        localStorage.setItem("kyb_admin_store", JSON.stringify(store.map(s => s.id === userId ? { ...s, kybStatus: "REJECTED" } : s)));
+      } catch (e) { /* ignore */ }
     } catch (err) {
       console.error(err);
       toast.error(`✗ ${companyName} has been REJECTED.`);

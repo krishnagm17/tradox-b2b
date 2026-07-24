@@ -114,10 +114,37 @@ export default function KybWizard() {
         toast.success("KYB document submitted successfully!", { id: toastId });
       }
 
-      // Save submission state locally as well with full data URL
+      // Save submission state locally with full data URL
       localStorage.setItem("kyb_submitted_doc", certFile.name);
       if (finalFileUrl) {
         localStorage.setItem("kyb_submitted_url", finalFileUrl);
+        // Also store in shared admin store so admin panel can access from same browser
+        try {
+          const user = auth.currentUser;
+          const adminStore = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
+          const uid = user?.uid || "local-user-1";
+          const userEmail = user?.email || "unknown@user.com";
+          const userName = user?.displayName || userEmail.split("@")[0];
+          // Remove existing entry for same user
+          const filtered = adminStore.filter(e => e.id !== uid && e.userEmail !== userEmail);
+          filtered.unshift({
+            id: uid,
+            userEmail: userEmail,
+            userName: userName,
+            companyName: `${userName} Company`,
+            documentName: certFile.name,
+            documentUrl: finalFileUrl,
+            kybStatus: "SUBMITTED",
+            submittedAt: new Date().toISOString(),
+            mobile: user?.phoneNumber || "+917777777777",
+            country: "India",
+            gst: null,
+            iec: null
+          });
+          localStorage.setItem("kyb_admin_store", JSON.stringify(filtered));
+        } catch (storeErr) {
+          console.warn("Admin store save notice:", storeErr);
+        }
       }
       localStorage.setItem("kyb_status", "SUBMITTED");
       setSubmitted(true);
