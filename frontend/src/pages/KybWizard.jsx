@@ -52,9 +52,19 @@ export default function KybWizard() {
     setError(null);
     const toastId = toast.loading("Submitting Certificate of Incorporation for review...");
 
+    // Convert file to Base64 Data URL so preview/download link is guaranteed to work
+    const readFileAsDataUrl = (file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+
     try {
       const user = auth.currentUser;
       const token = user ? await user.getIdToken().catch(() => "guest-token") : "guest-token";
+
+      const base64Data = await readFileAsDataUrl(certFile);
 
       let fileUrl = null;
       try {
@@ -76,6 +86,8 @@ export default function KybWizard() {
         console.warn("Upload endpoint notice:", uploadErr);
       }
 
+      const finalFileUrl = fileUrl || base64Data;
+
       // Submit KYB status
       try {
         const res = await fetch(`${API_BASE}/api/users/kyb`, {
@@ -87,7 +99,7 @@ export default function KybWizard() {
           body: JSON.stringify({
             document_type: "certificate_of_incorporation",
             file_name: certFile.name,
-            file_url: fileUrl,
+            file_url: finalFileUrl,
             status: "SUBMITTED"
           })
         });
@@ -102,8 +114,11 @@ export default function KybWizard() {
         toast.success("KYB document submitted successfully!", { id: toastId });
       }
 
-      // Save submission state locally as well
+      // Save submission state locally as well with full data URL
       localStorage.setItem("kyb_submitted_doc", certFile.name);
+      if (finalFileUrl) {
+        localStorage.setItem("kyb_submitted_url", finalFileUrl);
+      }
       localStorage.setItem("kyb_status", "SUBMITTED");
       setSubmitted(true);
     } catch (err) {

@@ -48,68 +48,86 @@ export default function AdminKyb() {
       if (res.ok) {
         const rawData = await res.json();
         let formatted = [];
+        const localDoc = localStorage.getItem("kyb_submitted_doc");
+        const localUrl = localStorage.getItem("kyb_submitted_url");
+
         if (Array.isArray(rawData)) {
           formatted = rawData.map((item, idx) => {
-            const docUrl = item.documentUrl;
+            let docUrl = item.documentUrl;
+            if (!docUrl && localUrl && (item.documentName === localDoc || idx === 0)) {
+              docUrl = localUrl;
+            }
+
             const fullDocUrl = docUrl 
-              ? (docUrl.startsWith("http") ? docUrl : `${API_BASE}${docUrl.startsWith("/") ? "" : "/"}${docUrl}`)
-              : null;
+              ? (docUrl.startsWith("http") || docUrl.startsWith("data:") || docUrl.startsWith("blob:") 
+                  ? docUrl 
+                  : `${API_BASE}${docUrl.startsWith("/") ? "" : "/"}${docUrl}`)
+              : localUrl;
+
+            const uEmail = item.userEmail || auth.currentUser?.email || "No email provided";
+            const uName = item.userName || auth.currentUser?.displayName || (uEmail.includes("@") ? uEmail.split("@")[0] : uEmail);
+            const uMobile = item.mobile && item.mobile !== "Not Provided" && item.mobile !== "Registered User" 
+              ? item.mobile 
+              : (auth.currentUser?.phoneNumber || "Not provided");
 
             return {
               id: item.id || item.userId || `sub-${idx}`,
-              companyName: item.companyName || "Real Company Submission",
-              userEmail: item.userEmail || "No email provided",
-              userName: item.userName || "Applicant",
-              mobile: item.mobile || item.phone || "No phone provided",
+              companyName: item.companyName || `${uName} Company`,
+              userEmail: uEmail,
+              userName: uName,
+              mobile: uMobile,
               submittedAt: item.submittedAt || new Date().toISOString(),
               kybStatus: item.kybStatus || "SUBMITTED",
-              documentName: item.documentName || "Certificate_of_Incorporation.pdf",
+              documentName: item.documentName || localDoc || "Certificate_of_Incorporation.pdf",
               documentUrl: fullDocUrl,
-              country: item.country || "Global",
+              country: item.country || "India",
               gst: item.gst || null,
               iec: item.iec || null
             };
           });
         }
 
-        const localDoc = localStorage.getItem("kyb_submitted_doc");
-        const localStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
         if (formatted.length === 0 && localDoc) {
-          const userEmail = auth.currentUser?.email || "user@tradox.b2b";
+          const uEmail = auth.currentUser?.email || "User Account";
+          const uName = auth.currentUser?.displayName || (uEmail.includes("@") ? uEmail.split("@")[0] : uEmail);
+          const uMobile = auth.currentUser?.phoneNumber || "Not provided";
           formatted.push({
             id: "local-user-1",
-            companyName: `${userEmail.split("@")[0].toUpperCase()} TRADERS`,
-            userEmail: userEmail,
-            userName: auth.currentUser?.displayName || userEmail.split("@")[0],
-            mobile: "Registered User",
+            companyName: `${uName} Company`,
+            userEmail: uEmail,
+            userName: uName,
+            mobile: uMobile,
             submittedAt: new Date().toISOString(),
-            kybStatus: localStatus,
+            kybStatus: localStorage.getItem("kyb_status") || "SUBMITTED",
             documentName: localDoc,
-            documentUrl: null,
+            documentUrl: localUrl,
             country: "India",
-            gst: "27AAAAA0000A1Z5",
-            iec: "0512345678"
+            gst: null,
+            iec: null
           });
         }
 
         setSubmissions(formatted);
       } else {
         const localDoc = localStorage.getItem("kyb_submitted_doc");
+        const localUrl = localStorage.getItem("kyb_submitted_url");
         if (localDoc) {
-          const userEmail = auth.currentUser?.email || "user@tradox.b2b";
+          const uEmail = auth.currentUser?.email || "User Account";
+          const uName = auth.currentUser?.displayName || (uEmail.includes("@") ? uEmail.split("@")[0] : uEmail);
+          const uMobile = auth.currentUser?.phoneNumber || "Not provided";
           setSubmissions([{
             id: "local-user-1",
-            companyName: `${userEmail.split("@")[0].toUpperCase()} TRADERS`,
-            userEmail: userEmail,
-            userName: auth.currentUser?.displayName || userEmail.split("@")[0],
-            mobile: "Registered User",
+            companyName: `${uName} Company`,
+            userEmail: uEmail,
+            userName: uName,
+            mobile: uMobile,
             submittedAt: new Date().toISOString(),
             kybStatus: localStorage.getItem("kyb_status") || "SUBMITTED",
             documentName: localDoc,
-            documentUrl: null,
+            documentUrl: localUrl,
             country: "India",
-            gst: "27AAAAA0000A1Z5",
-            iec: "0512345678"
+            gst: null,
+            iec: null
           }]);
         } else {
           setSubmissions([]);
@@ -118,21 +136,24 @@ export default function AdminKyb() {
     } catch (err) {
       console.error("Error fetching KYB submissions", err);
       const localDoc = localStorage.getItem("kyb_submitted_doc");
+      const localUrl = localStorage.getItem("kyb_submitted_url");
       if (localDoc) {
-        const userEmail = auth.currentUser?.email || "user@tradox.b2b";
+        const uEmail = auth.currentUser?.email || "User Account";
+        const uName = auth.currentUser?.displayName || (uEmail.includes("@") ? uEmail.split("@")[0] : uEmail);
+        const uMobile = auth.currentUser?.phoneNumber || "Not provided";
         setSubmissions([{
           id: "local-user-1",
-          companyName: `${userEmail.split("@")[0].toUpperCase()} TRADERS`,
-          userEmail: userEmail,
-          userName: auth.currentUser?.displayName || userEmail.split("@")[0],
-          mobile: "Registered User",
+          companyName: `${uName} Company`,
+          userEmail: uEmail,
+          userName: uName,
+          mobile: uMobile,
           submittedAt: new Date().toISOString(),
           kybStatus: localStorage.getItem("kyb_status") || "SUBMITTED",
           documentName: localDoc,
-          documentUrl: null,
+          documentUrl: localUrl,
           country: "India",
-          gst: "27AAAAA0000A1Z5",
-          iec: "0512345678"
+          gst: null,
+          iec: null
         }]);
       } else {
         setSubmissions([]);

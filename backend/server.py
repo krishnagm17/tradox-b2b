@@ -519,10 +519,10 @@ async def kyb(data: dict = Body(default={}), token_data: dict = Depends(verify_t
     submission = {
         "id": uid,
         "userId": uid,
-        "companyName": f"{email.split('@')[0].capitalize()} Traders",
+        "companyName": token_data.get("company_name") or token_data.get("companyName") or "Registered Company",
         "userEmail": email,
-        "userName": email.split("@")[0].capitalize(),
-        "mobile": "Not Provided",
+        "userName": token_data.get("name") or token_data.get("full_name") or email.split("@")[0],
+        "mobile": token_data.get("mobile") or token_data.get("phone") or "Not Provided",
         "submittedAt": now_str,
         "kybStatus": "SUBMITTED",
         "documentName": doc_name,
@@ -571,12 +571,12 @@ async def get_admin_kyb():
             
             # Only include users who have submitted or have KYB data
             if status or doc_name or doc_url:
-                comp_name = comp.get("name") or comp.get("companyName") or u.get("company_name") or u.get("companyName") or f"{u_email.split('@')[0].capitalize() if u_email else 'Trader'} Traders"
-                user_email = u_email or "user@tradox.b2b"
+                comp_name = comp.get("name") or comp.get("companyName") or u.get("company_name") or u.get("companyName") or "Registered Company"
+                user_email = u_email or "Not Provided"
                 user_name = u.get("name") or u.get("full_name") or u.get("username") or user_email.split("@")[0]
                 user_mobile = u.get("mobile") or u.get("mobile_number") or u.get("phone") or comp.get("phone") or "Not Provided"
-                gst_num = comp.get("gst") or u.get("gst")
-                iec_num = comp.get("iec") or u.get("iec")
+                gst_num = comp.get("gst") or u.get("gst") or None
+                iec_num = comp.get("iec") or u.get("iec") or None
                 
                 result.append({
                     "id": u_id,
