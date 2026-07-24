@@ -102,7 +102,12 @@ export default function Login() {
         navigate("/register");
       }
     } catch (err) {
-      setError("Invalid credentials. Please try again.");
+      console.error("Email login error:", err);
+      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential" || err.code === "auth/user-not-found") {
+        setError("Invalid email or password. If you originally registered with Google, please click 'Sign in with Google' above, or click 'Forgot Password?' to set a password.");
+      } else {
+        setError("Invalid credentials. Please try again or use 'Sign in with Google'.");
+      }
       setLoading(false);
     }
   };
