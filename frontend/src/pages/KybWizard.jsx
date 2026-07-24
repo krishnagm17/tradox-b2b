@@ -126,28 +126,77 @@ export default function KybWizard() {
 
       // ── SAVE TO SUPABASE (cross-browser, real-time, visible to admin) ──────
       try {
-        const fsUser = auth.currentUser;
-        const fsUid      = fsUser?.uid || "local-user-1";
+        const fsUser  = auth.currentUser;
+        const fsUid   = fsUser?.uid || "local-user-1";
+        const fsEmail = fsUser?.email || "unknown@user.com";
+        const fsName  = fsUser?.displayName || fsEmail.split("@")[0] || "Trader";
+        const fsComp  = `${fsName} Company`;
+        const fsPhone = fsUser?.phoneNumber || "Not Provided";
+        const nowIso  = new Date().toISOString();
 
         // Store base64 only if small enough for Supabase
         const docUrlToStore = finalFileUrl && finalFileUrl.length < 900_000 ? finalFileUrl : null;
         
-        // Use backend to ensure all tables (users, companies) get updated if possible
-        // But also write directly to Supabase as fallback for Vercel deployments where API_BASE is localhost
         try {
           const { supabase } = await import('../config/supabase');
           
-          await supabase
+          // 1. Check if user already exists in Supabase
+          const { data: existingUser } = await supabase
             .from('users')
-            .update({
-              kybStatus: 'SUBMITTED',
-              documentName: certFile.name,
-              documentUrl: docUrlToStore,
-              submittedAt: new Date().toISOString()
-            })
-            .eq('firebase_uid', fsUid);
-            
-          console.log("✓ KYB submission saved to Supabase (direct)");
+            .select('*')
+            .eq('firebase_uid', fsUid)
+            .maybeSingle();
+
+          if (existingUser) {
+            // Update existing user
+            await supabase
+              .from('users')
+              .update({
+                kybStatus: 'SUBMITTED',
+                documentName: certFile.name,
+                documentUrl: docUrlToStore,
+                submittedAt: nowIso,
+                updatedAt: nowIso
+              })
+              .eq('firebase_uid', fsUid);
+            console.log("✓ Updated existing user KYB in Supabase");
+          } else {
+            // User does not exist in Supabase yet (registered on Vercel without backend)
+            // Insert full user record so admin can see and approve it!
+            const { error: insErr } = await supabase
+              .from('users')
+              .insert([{
+                id: fsUid,
+                firebase_uid: fsUid,
+                email: fsEmail,
+                name: fsName,
+                companyName: fsComp,
+                phone: fsPhone,
+                role: 'TRADER',
+                kybStatus: 'SUBMITTED',
+                documentName: certFile.name,
+                documentUrl: docUrlToStore,
+                submittedAt: nowIso,
+                createdAt: nowIso,
+                updatedAt: nowIso
+              }]);
+
+            if (insErr) {
+              console.warn("Insert notice, trying fallback upsert:", insErr);
+              await supabase.from('users').upsert({
+                firebase_uid: fsUid,
+                email: fsEmail,
+                name: fsName,
+                companyName: fsComp,
+                kybStatus: 'SUBMITTED',
+                documentName: certFile.name,
+                documentUrl: docUrlToStore,
+                submittedAt: nowIso,
+                updatedAt: nowIso
+              });
+            }
+            console.log("✓ Inserted new user KYB record into Supabase");
+          }
         } catch (supabaseErr) {
           console.warn("Supabase direct write notice:", supabaseErr);
         }

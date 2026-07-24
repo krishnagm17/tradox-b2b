@@ -61,17 +61,17 @@ export default function AdminKyb() {
       const fsMap = new Map(); // uid -> submission
       try {
         const { supabase } = await import('../config/supabase');
-        // Fetch users who have submitted KYB (status is not PENDING or null)
+        // Fetch all users from Supabase
         const { data: usersData, error } = await supabase
           .from('users')
-          .select('*')
-          .neq('kybStatus', 'PENDING');
+          .select('*');
           
         if (!error && usersData) {
           usersData.forEach(data => {
-            if (!data.kybStatus) return; // skip if null
-            fsMap.set(data.firebase_uid, {
-              id: data.firebase_uid,
+            if (!data.kybStatus || data.kybStatus === 'PENDING') return; // skip unsubmitted
+            const uid = data.firebase_uid || data.id || data.email;
+            fsMap.set(uid, {
+              id: uid,
               companyName:  data.companyName  || data.company_name || "Registered Company",
               userEmail:    data.email        || "—",
               userName:     data.name         || data.email?.split("@")[0] || "—",
