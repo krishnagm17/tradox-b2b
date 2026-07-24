@@ -633,6 +633,27 @@ async def reject_admin_kyb(user_id: str, data: dict = Body(default={})):
                 print("Notice rejecting company kyb:", e)
     return {"status": "success", "reason": reason}
 
+# Admin permissions store for KYB approvals
+AUTHORIZED_KYB_ADMINS = set()
+
+@app.get("/api/admin/permissions")
+async def get_admin_permissions():
+    return {"authorized_emails": list(AUTHORIZED_KYB_ADMINS)}
+
+@app.post("/api/admin/permissions/grant")
+async def grant_admin_permission(data: dict = Body(default={})):
+    email = data.get("email", "").strip().lower()
+    if email:
+        AUTHORIZED_KYB_ADMINS.add(email)
+    return {"status": "success", "authorized_emails": list(AUTHORIZED_KYB_ADMINS)}
+
+@app.post("/api/admin/permissions/revoke")
+async def revoke_admin_permission(data: dict = Body(default={})):
+    email = data.get("email", "").strip().lower()
+    if email in AUTHORIZED_KYB_ADMINS:
+        AUTHORIZED_KYB_ADMINS.remove(email)
+    return {"status": "success", "authorized_emails": list(AUTHORIZED_KYB_ADMINS)}
+
 @app.post("/api/users/kyb/upload")
 async def upload_kyb_document(file: UploadFile = File(...)):
     os.makedirs("static/kyb", exist_ok=True)

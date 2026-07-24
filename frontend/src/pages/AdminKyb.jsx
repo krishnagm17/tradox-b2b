@@ -5,15 +5,11 @@ import { onAuthStateChanged } from "firebase/auth";
 import { toast } from "sonner";
 import {
   Shield, CheckCircle2, XCircle, Clock, ArrowLeft,
-  Building2, FileText, User, Download, Loader2, Search, Phone, Mail, Eye
+  Building2, FileText, User, Download, Loader2, Search, Phone, Mail, Eye,
+  Lock, Key, UserPlus, Trash2, ShieldAlert
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
-
-// Admin Firebase UIDs — add yours here
-const ADMIN_UIDS = [
-  "YOUR_ADMIN_FIREBASE_UID_HERE" // Replace with your actual Firebase UID
-];
 
 export default function AdminKyb() {
   const navigate = useNavigate();
@@ -23,7 +19,17 @@ export default function AdminKyb() {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState({});
   const [rejectReasons, setRejectReasons] = useState({});
-  const [expandedId, setExpandedId] = useState(null);
+  
+  // Permission management states
+  const [showPermModal, setShowPermModal] = useState(false);
+  const [authorizedEmails, setAuthorizedEmails] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kyb_authorized_emails") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [newAdminEmail, setNewAdminEmail] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -32,11 +38,20 @@ export default function AdminKyb() {
         return;
       }
 
+      const email = user.email?.toLowerCase() || "";
+      const isOwner = email.includes("krishnametri") || email.includes("owner") || email.includes("admin") || authorizedEmails.includes(email);
+
+      if (!isOwner) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
       setIsAdmin(true);
       fetchSubmissions(user);
     });
     return () => unsub();
-  }, []);
+  }, [authorizedEmails]);
 
   const fetchSubmissions = async (user) => {
     setLoading(true);
@@ -219,6 +234,31 @@ export default function AdminKyb() {
     s.userName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleGrantPermission = (e) => {
+    e.preventDefault();
+    if (!newAdminEmail.trim() || !newAdminEmail.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    const cleanEmail = newAdminEmail.trim().toLowerCase();
+    if (authorizedEmails.includes(cleanEmail)) {
+      toast.error("This email is already authorized.");
+      return;
+    }
+    const updated = [...authorizedEmails, cleanEmail];
+    setAuthorizedEmails(updated);
+    localStorage.setItem("kyb_authorized_emails", JSON.stringify(updated));
+    setNewAdminEmail("");
+    toast.success(`✓ Granted KYB Approval access to ${cleanEmail}`);
+  };
+
+  const handleRevokePermission = (emailToRevoke) => {
+    const updated = authorizedEmails.filter(e => e !== emailToRevoke);
+    setAuthorizedEmails(updated);
+    localStorage.setItem("kyb_authorized_emails", JSON.stringify(updated));
+    toast.success(`Removed KYB Approval access for ${emailToRevoke}`);
+  };
+
   const statusColor = {
     SUBMITTED: "bg-amber-100 text-amber-800 border-amber-300",
     VERIFIED: "bg-emerald-100 text-emerald-800 border-emerald-300",
@@ -238,7 +278,30 @@ export default function AdminKyb() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-          <p className="text-sm text-slate-600">Loading KYB submissions...</p>
+          <p className="text-sm text-slate-600">Checking owner permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── ACCESS DENIED LOCK SCREEN ─────────────────────────────────────────────
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full text-center bg-slate-950 border border-slate-800 rounded-3xl p-8 shadow-2xl">
+          <div className="w-16 h-16 bg-rose-950/80 border border-rose-800 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-8 h-8 text-rose-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+            This page is restricted to the <strong>Platform Owner</strong> and authorized staff members. You do not have permission to view or approve KYB applications.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg"
+          >
+            Return to Dashboard
+          </button>
         </div>
       </div>
     );
@@ -264,7 +327,15 @@ export default function AdminKyb() {
             </div>
           </div>
         </div>
-        <div className="text-[0.65rem] font-mono text-slate-500 uppercase tracking-wider">TradoxB2B Admin</div>
+
+        {/* Owner Permission Manager Button */}
+        <button
+          onClick={() => setShowPermModal(true)}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-md"
+        >
+          <Key className="w-3.5 h-3.5" />
+          Manage Permissions
+        </button>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -451,6 +522,92 @@ export default function AdminKyb() {
           KYB Admin Panel · TradoxB2B Compliance · All actions are logged.
         </p>
       </div>
+
+      {/* OWNER PERMISSIONS MANAGER MODAL */}
+      {showPermModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Manage KYB Approval Permissions</h3>
+                  <p className="text-xs text-slate-500">Platform Owner Controls</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPermModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold px-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Grant Permission Form */}
+            <form onSubmit={handleGrantPermission} className="mb-6">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Authorize Staff Email for KYB Approvals
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="Enter staff email (e.g. manager@tradox.b2b)"
+                  value={newAdminEmail}
+                  onChange={e => setNewAdminEmail(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-slate-300 focus:border-emerald-500 h-10 px-3 text-xs rounded-xl outline-none"
+                />
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-10 rounded-xl text-xs flex items-center gap-1.5 transition-colors shrink-0"
+                >
+                  <UserPlus className="w-4 h-4" /> Grant Access
+                </button>
+              </div>
+            </form>
+
+            {/* Authorized List */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Authorized Admin List ({authorizedEmails.length})
+              </h4>
+
+              {authorizedEmails.length === 0 ? (
+                <div className="bg-slate-50 rounded-xl p-4 text-center text-xs text-slate-500">
+                  Only you (Platform Owner) currently have KYB Approval access.
+                </div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  {authorizedEmails.map((email) => (
+                    <div key={email} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span className="text-xs font-bold text-slate-800">{email}</span>
+                      </div>
+                      <button
+                        onClick={() => handleRevokePermission(email)}
+                        className="text-rose-600 hover:text-rose-800 text-xs font-bold flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Revoke / Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowPermModal(false)}
+                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

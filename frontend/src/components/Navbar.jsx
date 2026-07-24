@@ -241,14 +241,17 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                       <Shield className="w-4 h-4 text-emerald-400" />
                       KYB Verification & Status
                     </button>
-                    {/* Admin KYB Approvals */}
-                    <button 
-                      onClick={() => { setShowDropdown(false); navigate("/admin/kyb"); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
-                    >
-                      <Shield className="w-4 h-4 text-emerald-400" />
-                      Admin KYB Approvals
-                    </button>
+
+                    {/* Admin KYB Approvals — Only for Owner/Authorized Admins */}
+                    {(user.email?.toLowerCase().includes("krishnametri") || user.email?.toLowerCase().includes("owner") || user.email?.toLowerCase().includes("admin") || localStorage.getItem("kyb_admin_authorized") === "true") && (
+                      <button 
+                        onClick={() => { setShowDropdown(false); navigate("/admin/kyb"); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"
+                      >
+                        <Shield className="w-4 h-4 text-emerald-400" />
+                        Admin KYB Approvals
+                      </button>
+                    )}
                     {/* Company Dashboard */}
                     <button 
                       onClick={() => { setShowDropdown(false); navigate("/dashboard"); }}

@@ -9,6 +9,9 @@ export default function Sidebar() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
+  const userEmail = auth.currentUser?.email?.toLowerCase() || "";
+  const isOwner = userEmail.includes("krishnametri") || userEmail.includes("owner") || userEmail.includes("admin") || localStorage.getItem("kyb_admin_authorized") === "true";
+
   const navItems = [
     { name: "Home Page", path: "/", icon: <Home className="w-5 h-5" /> },
     { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -16,7 +19,7 @@ export default function Sidebar() {
     { name: "Live Board", path: "/live-board", icon: <FileText className="w-5 h-5" /> },
     { name: "Trade Tools", path: "/trade-tools", icon: <Package className="w-5 h-5" /> },
     { name: "KYB Verification & Status", path: "/kyb", icon: <Shield className="w-5 h-5" /> },
-    { name: "Admin KYB Approvals", path: "/admin/kyb", icon: <Shield className="w-5 h-5 text-emerald-400" /> },
+    ...(isOwner ? [{ name: "Admin KYB Approvals", path: "/admin/kyb", icon: <Shield className="w-5 h-5 text-emerald-400" /> }] : []),
   ];
 
   const handleSignOut = async () => {
