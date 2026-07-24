@@ -250,7 +250,7 @@ export default function Profile() {
 
         <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 w-full">
 
-          {/* Avatar + Name Card */}
+          {/* 1. Avatar + Name Card */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-5">
               <div className="relative">
@@ -280,48 +280,209 @@ export default function Profile() {
                 ) : (
                   <h2 className="text-xl font-bold text-slate-900 mb-1 truncate">{displayName}</h2>
                 )}
-              <p className={`text-sm font-bold mb-1 ${kybStatus === "VERIFIED" ? "text-emerald-900" : "text-amber-900"}`}>
-                Business Verification (KYB): {kybStatus}
-              </p>
-              <p className={`text-xs ${kybStatus === "VERIFIED" ? "text-emerald-700" : "text-amber-700"}`}>
-                {kybStatus === "VERIFIED"
-                  ? "Your business is verified. You can trade freely on the platform."
-                  : kybStatus === "SUBMITTED"
-                  ? "Your documents are under review. You'll be notified by email."
-                  : "Please complete KYB verification to unlock all trading features."}
-              </p>
-              {kybStatus !== "VERIFIED" && kybStatus !== "SUBMITTED" && (
-                <button
-                  onClick={() => navigate("/onboarding/kyb")}
-                  className="mt-3 text-xs font-bold text-amber-800 bg-amber-200 hover:bg-amber-300 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Start KYB Verification →
-                </button>
-              )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`flex items-center gap-1.5 text-xs font-bold border px-3 py-1 rounded-full ${kybColor[kybStatus] || kybColor.PENDING}`}>
+                    {kybIcon[kybStatus]} {kybStatus === "VERIFIED" ? "KYB Verified" : kybStatus === "SUBMITTED" ? "Awaiting Review" : kybStatus === "REJECTED" ? "KYB Rejected" : "KYB Pending"}
+                  </span>
+                  <span className="text-xs font-bold font-mono text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-full uppercase">
+                    {displayRole}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Account Actions */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-4">Account</h3>
-          <div className="space-y-2">
-            <button onClick={() => navigate("/settings")}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left group">
-              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center group-hover:bg-slate-200 transition-colors">
-                <Shield className="w-4 h-4 text-slate-600" />
+          {/* 2. Contact Information Card */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Contact Information</h3>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {/* Email */}
+              <div className="flex items-center gap-4 px-5 py-4">
+                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Mail className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-bold mb-0.5">Email Address</p>
+                  <p className="text-sm text-slate-900 font-medium truncate">{displayEmail}</p>
+                </div>
+                <span className="text-[0.65rem] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-bold">Verified</span>
               </div>
+
+              {/* Mobile Number with OTP Change Button */}
+              <div className="flex items-center gap-4 px-5 py-4">
+                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Phone className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-bold mb-0.5">Mobile Number</p>
+                  <p className="text-sm text-slate-900 font-semibold">{editPhone || firebaseUser?.phoneNumber || "Not provided"}</p>
+                </div>
+                <button
+                  onClick={() => setShowPhoneModal(true)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-xl transition-colors shrink-0 shadow-sm"
+                >
+                  <Key className="w-3.5 h-3.5" /> Change Mobile Number (OTP Required)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Business Information Card */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Business Information</h3>
+            </div>
+            <div className="divide-y divide-slate-100">
+              <div className="flex items-start gap-4 px-5 py-4">
+                <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-bold mb-0.5">Company Name</p>
+                  <p className="text-sm text-slate-900 font-medium">{editCompany || "Not registered"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4 px-5 py-4">
+                <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Globe className="w-4 h-4 text-orange-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-bold mb-0.5">Country</p>
+                  <p className="text-sm text-slate-900 font-medium">{editCountry || "Unknown"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4 px-5 py-4">
+                <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Briefcase className="w-4 h-4 text-teal-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-bold mb-0.5">Business Type</p>
+                  <p className="text-sm text-slate-900 font-medium">{editCategory || "Wholesale Trading"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. KYB Status Card */}
+          <div className={`rounded-3xl border p-5 ${kybStatus === "VERIFIED" ? "bg-emerald-50 border-emerald-200" : kybStatus === "SUBMITTED" ? "bg-blue-50 border-blue-200" : "bg-amber-50 border-amber-200"}`}>
+            <div className="flex items-start gap-4">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${kybStatus === "VERIFIED" ? "bg-emerald-200" : "bg-amber-200"}`}>
+                <Shield className={`w-5 h-5 ${kybStatus === "VERIFIED" ? "text-emerald-700" : "text-amber-700"}`} />
+              </div>
+              <div className="flex-1">
+                <p className={`text-sm font-bold mb-1 ${kybStatus === "VERIFIED" ? "text-emerald-900" : "text-amber-900"}`}>
+                  Business Verification (KYB): {kybStatus}
+                </p>
+                <p className={`text-xs ${kybStatus === "VERIFIED" ? "text-emerald-700" : "text-amber-700"}`}>
+                  {kybStatus === "VERIFIED"
+                    ? "Your business is verified. You can trade freely on the platform."
+                    : kybStatus === "SUBMITTED"
+                    ? "Your documents are under review. You'll be notified by email."
+                    : "Please complete KYB verification to unlock all trading features."}
+                </p>
+                {kybStatus !== "VERIFIED" && kybStatus !== "SUBMITTED" && (
+                  <button
+                    onClick={() => navigate("/kyb")}
+                    className="mt-3 text-xs font-bold text-amber-800 bg-amber-200 hover:bg-amber-300 px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                  >
+                    Start KYB Verification →
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* MANDATORY PHONE CHANGE OTP MODAL */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 font-sans">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Change Mobile Number</h3>
+                  <p className="text-xs text-slate-500">OTP Verification Required</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPhoneModal(false);
+                  setSmsSent(false);
+                  setOtpCode("");
+                }}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold px-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={smsSent ? handleVerifyPhoneOtp : handleSendPhoneOtp} className="space-y-4">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Security & Settings</p>
-                <p className="text-xs text-slate-500">Password, notifications, preferences</p>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">New Mobile Number *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    placeholder="e.g. +91 9876543210"
+                    value={newPhone}
+                    disabled={smsSent}
+                    onChange={e => setNewPhone(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-11 px-3 text-sm rounded-xl outline-none transition-all font-medium text-slate-900"
+                  />
+                  {!smsSent && (
+                    <button
+                      type="submit"
+                      disabled={otpLoading || !newPhone.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-11 text-xs rounded-xl transition-colors shrink-0 flex items-center gap-1 shadow-sm"
+                    >
+                      {otpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send OTP
+                    </button>
+                  )}
+                </div>
               </div>
-              <ArrowLeft className="w-4 h-4 text-slate-400 rotate-180 ml-auto" />
-            </button>
+
+              {smsSent && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-900">Enter OTP Code Sent to {newPhone}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSmsSent(false)}
+                      className="text-[0.65rem] font-bold text-emerald-700 underline"
+                    >
+                      Edit Number
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Enter 6-digit OTP (e.g. 123456)"
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value)}
+                    maxLength={6}
+                    className="w-full bg-white border border-slate-300 h-11 px-3 text-sm rounded-xl outline-none focus:border-emerald-600 font-mono tracking-widest font-bold text-slate-900"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={otpLoading || !otpCode}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 text-xs rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md"
+                  >
+                    {otpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Verify & Save Mobile Number
+                  </button>
+                </div>
+              )}
+            </form>
           </div>
         </div>
-
-      </div>
-      </div>
+      )}
     </div>
   );
 }
