@@ -482,66 +482,271 @@ async def get_rfqs():
         out.append(RFQ(id=r["id"], companyId=r["buyerCompanyId"], createdBy="", product=r.get("title",""), category=r.get("category",""), quantity=r.get("targetQuantity",0), targetPrice=r.get("targetPrice"), destinationCountry="", deliveryDate="", description=r.get("description"), expiresAt=r.get("expiresAt")))
     return out
 
+
+def _room_from_row(e: dict) -> NegotiationRoom:
+    """Safely convert a DB row dict to a NegotiationRoom, handling missing keys."""
+    return NegotiationRoom(
+        id=e["id"],
+        buyerCompanyId=e.get("buyerCompanyId", ""),
+        supplierCompanyId=e.get("supplierCompanyId", ""),
+        rfqId=e.get("rfqId"),
+        productId=e.get("productId"),
+        status=e.get("status", "ACTIVE"),
+        listing_type=e.get("listing_type", "PRODUCT"),
+        listing_title=e.get("listing_title"),
+        commodity_name=e.get("commodity_name"),
+        quantity=e.get("quantity"),
+        unit=e.get("unit", "MT"),
+        price=e.get("price"),
+        buyer_company_name=e.get("buyer_company_name"),
+        seller_company_name=e.get("seller_company_name"),
+        origin_country=e.get("origin_country"),
+        last_message_at=e.get("last_message_at"),
+        unread_buyer=e.get("unread_buyer", 0),
+        unread_seller=e.get("unread_seller", 0),
+        buyer_user_id=e.get("buyer_user_id"),
+        seller_user_id=e.get("seller_user_id"),
+        createdAt=e.get("createdAt", datetime.datetime.utcnow().isoformat() + "Z"),
+        updatedAt=e.get("updatedAt", datetime.datetime.utcnow().isoformat() + "Z"),
+    )
+
+
 @app.post("/api/negotiations/rooms", response_model=NegotiationRoom)
 async def create_negotiation_room(data: dict, token_data: dict = Depends(verify_token)):
     db = get_db()
-    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
-    buyer_company_id = res.data[0]["companyId"]
-    
+    uid = token_data.get("uid")
+    user_res = db.table("users").select("*").eq("firebase_uid", uid).execute()
+    if not user_res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    current_user = user_res.data[0]
+    my_company_id = current_user.get("companyId")
+
     rfq_id = data.get("rfqId")
     product_id = data.get("productId")
+
+    buyer_company_id = None
     supplier_company_id = None
-    
-    if rfq_id:
-        rfq_res = db.table("rfqs").select("*").eq("id", rfq_id).execute()
-        supplier_company_id = buyer_company_id
-        buyer_company_id = rfq_res.data[0]["buyerCompanyId"]
-    elif product_id:
+    buyer_uid = None
+    seller_uid = None
+    commodity_name = None
+    listing_title = None
+    listing_type = "PRODUCT"
+    quantity = None
+    unit = "MT"
+    price = None
+    origin_country = None
+    buyer_company_name = None
+    seller_company_name = None
+
+    if product_id:
+        # I am the buyer, seller owns the product
         p_res = db.table("products").select("*").eq("id", product_id).execute()
-        supplier_company_id = p_res.data[0]["companyId"]
-        
-    ex = db.table("negotiation_rooms").select("*").eq("buyerCompanyId", buyer_company_id).eq("supplierCompanyId", supplier_company_id).execute()
-    if ex.data:
-        for r in ex.data:
-            if (rfq_id and r.get("rfqId") == rfq_id) or (product_id and r.get("productId") == product_id):
-                e = r
-                return NegotiationRoom(id=e["id"], buyerCompanyId=e["buyerCompanyId"], supplierCompanyId=e["supplierCompanyId"], rfqId=e.get("rfqId"), productId=e.get("productId"))
-        
-    new_room = NegotiationRoom(buyerCompanyId=buyer_company_id, supplierCompanyId=supplier_company_id, rfqId=rfq_id, productId=product_id)
-    db.table("negotiation_rooms").insert({
+        if not p_res.data:
+            raise HTTPException(status_code=404, detail="Product not found")
+        p = p_res.data[0]
+        buyer_company_id = my_company_id
+        supplier_company_id = p.get("companyId")
+        buyer_uid = uid
+        # Get seller uid from users table
+        seller_res = db.table("users").select("firebase_uid").eq("companyId", supplier_company_id).execute()
+        if seller_res.data:
+            seller_uid = seller_res.data[0].get("firebase_uid")
+        listing_type = "PRODUCT"
+        commodity_name = p.get("name") or p.get("title") or "Commodity"
+        listing_title = commodity_name
+        quantity = p.get("quantity")
+        unit = p.get("unit", "MT")
+        price = p.get("price")
+        origin_country = p.get("country")
+    elif rfq_id:
+        # I am the seller responding to a buyer's RFQ
+        rfq_res = db.table("rfqs").select("*").eq("id", rfq_id).execute()
+        if not rfq_res.data:
+            raise HTTPException(status_code=404, detail="RFQ not found")
+        rfq = rfq_res.data[0]
+        buyer_company_id = rfq.get("buyerCompanyId")
+        supplier_company_id = my_company_id
+        seller_uid = uid
+        buyer_res = db.table("users").select("firebase_uid").eq("companyId", buyer_company_id).execute()
+        if buyer_res.data:
+            buyer_uid = buyer_res.data[0].get("firebase_uid")
+        listing_type = "RFQ"
+        commodity_name = rfq.get("title") or rfq.get("product") or "RFQ Item"
+        listing_title = commodity_name
+        quantity = rfq.get("targetQuantity")
+        unit = rfq.get("unit", "MT")
+        price = rfq.get("targetPrice")
+        origin_country = rfq.get("destinationCountry")
+    else:
+        raise HTTPException(status_code=400, detail="productId or rfqId required")
+
+    # Fetch company names
+    try:
+        buyer_co = db.table("companies").select("name").eq("id", buyer_company_id).execute()
+        buyer_company_name = buyer_co.data[0].get("name") if buyer_co.data else None
+    except:
+        pass
+    try:
+        seller_co = db.table("companies").select("name").eq("id", supplier_company_id).execute()
+        seller_company_name = seller_co.data[0].get("name") if seller_co.data else None
+    except:
+        pass
+
+    # Check for existing room (duplicate prevention)
+    try:
+        q = db.table("negotiation_rooms").select("*").eq("buyerCompanyId", buyer_company_id).eq("supplierCompanyId", supplier_company_id)
+        if product_id:
+            q = q.eq("productId", product_id)
+        elif rfq_id:
+            q = q.eq("rfqId", rfq_id)
+        ex = q.execute()
+        if ex.data:
+            return _room_from_row(ex.data[0])
+    except:
+        pass
+
+    # Create new room with full listing context
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    new_room = NegotiationRoom(
+        buyerCompanyId=buyer_company_id,
+        supplierCompanyId=supplier_company_id,
+        rfqId=rfq_id,
+        productId=product_id,
+        listing_type=listing_type,
+        listing_title=listing_title,
+        commodity_name=commodity_name,
+        quantity=quantity,
+        unit=unit,
+        price=price,
+        buyer_company_name=buyer_company_name,
+        seller_company_name=seller_company_name,
+        origin_country=origin_country,
+        last_message_at=now,
+        buyer_user_id=buyer_uid,
+        seller_user_id=seller_uid,
+    )
+
+    insert_data = {
         "id": new_room.id,
         "buyerCompanyId": new_room.buyerCompanyId,
         "supplierCompanyId": new_room.supplierCompanyId,
         "rfqId": new_room.rfqId,
         "productId": new_room.productId,
         "status": new_room.status,
-        "createdAt": new_room.createdAt
+        "listing_type": new_room.listing_type,
+        "listing_title": new_room.listing_title,
+        "commodity_name": new_room.commodity_name,
+        "quantity": new_room.quantity,
+        "unit": new_room.unit,
+        "price": new_room.price,
+        "buyer_company_name": new_room.buyer_company_name,
+        "seller_company_name": new_room.seller_company_name,
+        "origin_country": new_room.origin_country,
+        "last_message_at": new_room.last_message_at,
+        "unread_buyer": 0,
+        "unread_seller": 0,
+        "buyer_user_id": new_room.buyer_user_id,
+        "seller_user_id": new_room.seller_user_id,
+        "createdAt": new_room.createdAt,
+        "updatedAt": new_room.updatedAt,
+    }
+    db.table("negotiation_rooms").insert(insert_data).execute()
+
+    # System message
+    sys_msg = Message(room_id=new_room.id, sender_id="system",
+                      content=f"Negotiation started for {commodity_name}. Both parties can now exchange messages and formal offers.")
+    db.table("messages").insert({
+        "id": sys_msg.id, "room_id": sys_msg.room_id,
+        "sender_id": sys_msg.sender_id, "content": sys_msg.content,
+        "timestamp": sys_msg.timestamp
     }).execute()
-    
-    sys_msg = Message(room_id=new_room.id, sender_id="system", content="Negotiation room created.")
-    db.table("messages").insert({"id": sys_msg.id, "room_id": sys_msg.room_id, "sender_id": sys_msg.sender_id, "content": sys_msg.content, "timestamp": sys_msg.timestamp}).execute()
-    
+
+    # Notify the other party
+    try:
+        notify_uid = seller_uid if listing_type == "PRODUCT" else buyer_uid
+        if notify_uid:
+            db.table("notifications").insert({
+                "firebase_uid": notify_uid,
+                "title": "New Negotiation Started",
+                "message": f"A new negotiation has been started for '{commodity_name}'.",
+                "type": "negotiation_started",
+                "is_read": False
+            }).execute()
+    except Exception as e:
+        print("Notice: notification insert failed:", e)
+
     return new_room
+
 
 @app.get("/api/negotiations/rooms")
 async def get_rooms(token_data: dict = Depends(verify_token)):
     db = get_db()
-    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
-    c_id = res.data[0]["companyId"]
-    
-    r_res = db.table("negotiation_rooms").select("*").or_(f"buyerCompanyId.eq.{c_id},supplierCompanyId.eq.{c_id}").execute()
-    
+    uid = token_data.get("uid")
+    res = db.table("users").select("*").eq("firebase_uid", uid).execute()
+    if not res.data:
+        return []
+    c_id = res.data[0].get("companyId")
+    my_uid = uid
+
+    try:
+        r_res = db.table("negotiation_rooms").select("*").or_(
+            f"buyerCompanyId.eq.{c_id},supplierCompanyId.eq.{c_id}"
+        ).order("last_message_at", desc=True).execute()
+    except:
+        r_res = db.table("negotiation_rooms").select("*").or_(
+            f"buyerCompanyId.eq.{c_id},supplierCompanyId.eq.{c_id}"
+        ).execute()
+
     out = []
     for e in r_res.data:
-        out.append(NegotiationRoom(id=e["id"], buyerCompanyId=e["buyerCompanyId"], supplierCompanyId=e["supplierCompanyId"], rfqId=e.get("rfqId"), productId=e.get("productId")))
+        room = _room_from_row(e)
+        # Set unread count based on whether I'm buyer or seller
+        if e.get("buyerCompanyId") != c_id:
+            # I am the seller
+            room.unread_buyer = 0  # not relevant to me
+        else:
+            room.unread_seller = 0  # not relevant to me
+        out.append(room)
     return out
+
 
 @app.get("/api/negotiations/rooms/{room_id}")
 async def get_room(room_id: str, token_data: dict = Depends(verify_token)):
     db = get_db()
     ex = db.table("negotiation_rooms").select("*").eq("id", room_id).execute()
-    e = ex.data[0]
-    return NegotiationRoom(id=e["id"], buyerCompanyId=e["buyerCompanyId"], supplierCompanyId=e["supplierCompanyId"], rfqId=e.get("rfqId"), productId=e.get("productId"))
+    if not ex.data:
+        raise HTTPException(status_code=404, detail="Room not found")
+    return _room_from_row(ex.data[0])
+
+
+@app.put("/api/negotiations/rooms/{room_id}/status")
+async def update_room_status(room_id: str, data: dict, token_data: dict = Depends(verify_token)):
+    db = get_db()
+    new_status = data.get("status", "CLOSED")
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    update_data = {"status": new_status, "updatedAt": now}
+    if new_status == "ARCHIVED":
+        update_data["archived_at"] = now
+    db.table("negotiation_rooms").update(update_data).eq("id", room_id).execute()
+    return {"status": new_status, "updated": True}
+
+
+@app.post("/api/negotiations/rooms/{room_id}/read")
+async def mark_room_read(room_id: str, token_data: dict = Depends(verify_token)):
+    db = get_db()
+    uid = token_data.get("uid")
+    user_res = db.table("users").select("companyId").eq("firebase_uid", uid).execute()
+    if not user_res.data:
+        return {"ok": True}
+    c_id = user_res.data[0].get("companyId")
+    room_res = db.table("negotiation_rooms").select("buyerCompanyId").eq("id", room_id).execute()
+    if room_res.data:
+        if room_res.data[0].get("buyerCompanyId") == c_id:
+            db.table("negotiation_rooms").update({"unread_buyer": 0}).eq("id", room_id).execute()
+        else:
+            db.table("negotiation_rooms").update({"unread_seller": 0}).eq("id", room_id).execute()
+    return {"ok": True}
+
 
 @app.get("/api/negotiations/rooms/{room_id}/messages")
 async def get_messages(room_id: str, token_data: dict = Depends(verify_token)):
@@ -549,65 +754,94 @@ async def get_messages(room_id: str, token_data: dict = Depends(verify_token)):
     m = db.table("messages").select("*").eq("room_id", room_id).order("timestamp").execute()
     out = []
     for x in m.data:
-        out.append(Message(id=x["id"], room_id=x["room_id"], sender_id=x["sender_id"], content=x.get("content"), offer_version=x.get("offer_version"), timestamp=x.get("timestamp")))
+        out.append(Message(id=x["id"], room_id=x["room_id"], sender_id=x["sender_id"],
+                           content=x.get("content"), offer_version=x.get("offer_version"),
+                           timestamp=x.get("timestamp")))
     return out
+
 
 @app.post("/api/negotiations/rooms/{room_id}/messages", response_model=Message)
 async def send_room_message(room_id: str, data: dict, token_data: dict = Depends(verify_token)):
     db = get_db()
     uid = token_data.get("uid")
     content = data.get("content", "")
-    
+
     msg = Message(room_id=room_id, sender_id=uid, content=content)
     db.table("messages").insert({
-        "id": msg.id,
-        "room_id": msg.room_id,
-        "sender_id": msg.sender_id,
-        "content": msg.content,
-        "timestamp": msg.timestamp
+        "id": msg.id, "room_id": msg.room_id, "sender_id": msg.sender_id,
+        "content": msg.content, "timestamp": msg.timestamp
     }).execute()
-    
+
+    # Update room last_message_at and unread count
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    try:
+        room_res = db.table("negotiation_rooms").select("buyerCompanyId,supplierCompanyId,buyer_user_id,seller_user_id,commodity_name,unread_buyer,unread_seller").eq("id", room_id).execute()
+        if room_res.data:
+            r = room_res.data[0]
+            user_res = db.table("users").select("companyId").eq("firebase_uid", uid).execute()
+            my_company = user_res.data[0].get("companyId") if user_res.data else None
+            is_buyer = r.get("buyerCompanyId") == my_company
+
+            update_payload = {"last_message_at": now, "updatedAt": now}
+            if is_buyer:
+                update_payload["unread_seller"] = (r.get("unread_seller") or 0) + 1
+                notify_uid = r.get("seller_user_id")
+            else:
+                update_payload["unread_buyer"] = (r.get("unread_buyer") or 0) + 1
+                notify_uid = r.get("buyer_user_id")
+
+            db.table("negotiation_rooms").update(update_payload).eq("id", room_id).execute()
+
+            # Send notification to other party
+            if notify_uid and notify_uid != uid:
+                commodity = r.get("commodity_name", "your negotiation")
+                db.table("notifications").insert({
+                    "firebase_uid": notify_uid,
+                    "title": "New Message",
+                    "message": f"You have a new message in the negotiation for '{commodity}'.",
+                    "type": "new_message",
+                    "is_read": False
+                }).execute()
+    except Exception as e:
+        print("Notice updating room last_message_at:", e)
+
     try:
         await manager.broadcast_to_room(room_id, {"type": "chat", "message": msg.model_dump()})
     except Exception as e:
         print("WebSocket broadcast error:", e)
-        
+
     return msg
+
 
 @app.post("/api/negotiations/rooms/{room_id}/offers")
 async def submit_offer(room_id: str, data: dict, token_data: dict = Depends(verify_token)):
     db = get_db()
     uid = token_data.get("uid")
-    
+
     m = db.table("messages").select("*").eq("room_id", room_id).not_.is_("offer_version", "null").execute()
     next_ver = 1
     if m.data:
         next_ver = len(m.data) + 1
-        
+
     try:
         price = float(data.get("price") or 0)
     except Exception:
         price = 0.0
-
     try:
         quantity = float(data.get("quantity") or 0)
     except Exception:
         quantity = 0.0
-
     try:
         moq = float(data.get("moq") or 1)
     except Exception:
         moq = 1.0
-
     try:
         validity_hours = int(data.get("validity_hours") or 24)
     except Exception:
         validity_hours = 24
 
     card = OfferCard(
-        price=price,
-        quantity=quantity,
-        moq=moq,
+        price=price, quantity=quantity, moq=moq,
         delivery_date=str(data.get("delivery_date") or data.get("deliveryDate") or "TBD"),
         packaging=str(data.get("packaging") or "Standard"),
         payment_terms=str(data.get("payment_terms") or data.get("paymentTerms") or "LC at sight"),
@@ -617,17 +851,52 @@ async def submit_offer(room_id: str, data: dict, token_data: dict = Depends(veri
         validity_hours=validity_hours,
         remarks=str(data.get("remarks") or data.get("specifications") or "")
     )
-    ov = OfferVersion(version=next_ver, created_by=uid, timestamp=datetime.datetime.utcnow().isoformat() + "Z", card=card)
-    
+    ov = OfferVersion(version=next_ver, created_by=uid,
+                      timestamp=datetime.datetime.utcnow().isoformat() + "Z", card=card)
+
     msg = Message(room_id=room_id, sender_id=uid, content=f"Sent Offer v{next_ver}", offer_version=ov)
-    db.table("messages").insert({"id": msg.id, "room_id": msg.room_id, "sender_id": msg.sender_id, "content": msg.content, "offer_version": msg.offer_version.model_dump() if msg.offer_version else None, "timestamp": msg.timestamp}).execute()
-    
+    db.table("messages").insert({
+        "id": msg.id, "room_id": msg.room_id, "sender_id": msg.sender_id,
+        "content": msg.content, "offer_version": msg.offer_version.model_dump() if msg.offer_version else None,
+        "timestamp": msg.timestamp
+    }).execute()
+
+    # Update room last_message_at and notify other party
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    try:
+        room_res = db.table("negotiation_rooms").select("buyerCompanyId,buyer_user_id,seller_user_id,commodity_name,unread_buyer,unread_seller").eq("id", room_id).execute()
+        if room_res.data:
+            r = room_res.data[0]
+            user_res = db.table("users").select("companyId").eq("firebase_uid", uid).execute()
+            my_company = user_res.data[0].get("companyId") if user_res.data else None
+            is_buyer = r.get("buyerCompanyId") == my_company
+            update_payload = {"last_message_at": now, "updatedAt": now}
+            if is_buyer:
+                update_payload["unread_seller"] = (r.get("unread_seller") or 0) + 1
+                notify_uid = r.get("seller_user_id")
+            else:
+                update_payload["unread_buyer"] = (r.get("unread_buyer") or 0) + 1
+                notify_uid = r.get("buyer_user_id")
+            db.table("negotiation_rooms").update(update_payload).eq("id", room_id).execute()
+            if notify_uid and notify_uid != uid:
+                commodity = r.get("commodity_name", "a commodity")
+                db.table("notifications").insert({
+                    "firebase_uid": notify_uid,
+                    "title": f"New Offer v{next_ver} Received",
+                    "message": f"A formal offer (v{next_ver}) was submitted for '{commodity}'. Review and respond.",
+                    "type": "offer_received",
+                    "is_read": False
+                }).execute()
+    except Exception as e:
+        print("Notice updating offer room:", e)
+
     try:
         await manager.broadcast_to_room(room_id, {"type": "chat", "message": msg.model_dump()})
     except Exception as e:
         print("WebSocket broadcast error:", e)
 
     return msg
+
 
 @app.websocket("/ws/negotiations/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str):
@@ -642,6 +911,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                 await manager.broadcast_to_room(room_id, {"type": "chat", "message": msg.model_dump()})
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id=room_id)
+
 
 # ─── PERSISTENT KYB SUBMISSIONS STORE (JSON file-backed, survives restarts) ──
 import json

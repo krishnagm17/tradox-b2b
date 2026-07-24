@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, Check, CheckCheck, X } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, MoreVertical, FileText, CheckCheck, X, Package, ShoppingCart, Building2, MapPin, Hash, TrendingUp, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../config/firebase";
-import { API_BASE, WS_BASE } from "../utils/api";
+import { supabase } from "../config/supabase";
+import { API_BASE } from "../utils/api";
 
 export default function NegotiationRoom() {
   const { room_id: id } = useParams();
@@ -12,12 +13,13 @@ export default function NegotiationRoom() {
   const [room, setRoom] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [ws, setWs] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [kybStatus, setKybStatus] = useState(null);
   const [contactWarning, setContactWarning] = useState(false);
+  const [showSummary, setShowSummary] = useState(true);
   const messagesEndRef = useRef(null);
-  const wsRef = useRef(null);
+  const tokenRef = useRef(null);
+  const myUidRef = useRef(null);
 
   // Contact info detection regex patterns
   const CONTACT_PATTERNS = [
@@ -51,20 +53,40 @@ export default function NegotiationRoom() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        myUidRef.current = currentUser.uid;
         fetchRoomAndMessages(currentUser);
-        setupWebSocket();
       } else {
         navigate("/login");
       }
     });
+    return () => unsubscribe();
+  }, [id]);
 
-    return () => {
-      unsubscribe();
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
+  // Supabase Realtime — subscribe to new messages in this room
+  useEffect(() => {
+    const channel = supabase
+      .channel(`room-messages-${id}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `room_id=eq.${id}`,
+      }, (payload) => {
+        const newMsg = payload.new;
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          // Remove optimistic temp message if content matches
+          const filtered = prev.filter(m => !(
+            typeof m.id === "string" &&
+            m.id.startsWith("temp-") &&
+            m.sender_id === newMsg.sender_id &&
+            m.content === newMsg.content
+          ));
+          return [...filtered, newMsg];
+        });
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, [id]);
 
   useEffect(() => {
@@ -76,6 +98,7 @@ export default function NegotiationRoom() {
       const activeUser = currentUser || auth.currentUser;
       const token = await activeUser?.getIdToken();
       if (!token) return;
+      tokenRef.current = token;
 
       const roomRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}`, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -83,14 +106,7 @@ export default function NegotiationRoom() {
       if (roomRes.ok) {
         setRoom(await roomRes.json());
       } else {
-        // Fallback room object if newly created
-        setRoom({
-          id: id,
-          buyer_id: activeUser.uid,
-          supplier_id: "supplier",
-          status: "ACTIVE",
-          created_at: new Date().toISOString()
-        });
+        setRoom({ id, status: "ACTIVE", createdAt: new Date().toISOString() });
       }
 
       const msgRes = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/messages`, {
@@ -103,58 +119,23 @@ export default function NegotiationRoom() {
       });
       if (userRes.ok) {
         const userData = await userRes.json();
-        setKybStatus(userData.kybStatus || userData.company?.kybStatus || "PENDING");
+        setKybStatus(userData.kybStatus || "PENDING");
       }
+
+      // Mark room as read
+      fetch(`${API_BASE}/api/negotiations/rooms/${id}/read`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      }).catch(() => {});
     } catch (err) {
       console.error(err);
-      // Fallback room to prevent blank screen
-      setRoom({
-        id: id,
-        buyer_id: currentUser?.uid || "user",
-        supplier_id: "supplier",
-        status: "ACTIVE",
-        created_at: new Date().toISOString()
-      });
+      setRoom({ id, status: "ACTIVE", createdAt: new Date().toISOString() });
     }
   };
 
-  const setupWebSocket = () => {
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-
-    const socket = new WebSocket(`${WS_BASE}/ws/negotiations/${id}`);
-    
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "chat") {
-        setMessages(prev => {
-          if (prev.some(m => m.id === data.message.id)) return prev;
-          
-          const filtered = prev.filter(m => !(
-            typeof m.id === "string" && 
-            m.id.startsWith("temp-") && 
-            m.sender_id === data.message.sender_id && 
-            m.content === data.message.content
-          ));
-          
-          return [...filtered, data.message];
-        });
-
-        if (data.message.sender_id !== auth.currentUser?.uid) {
-          setIsTyping(false);
-        }
-      } else if (data.type === "typing" && data.sender_id !== auth.currentUser?.uid) {
-        setIsTyping(true);
-        setTimeout(() => setIsTyping(false), 3000);
-      }
-    };
-    
-    socket.onerror = (err) => console.error("WebSocket error:", err);
-    socket.onclose = () => console.log("WebSocket connection closed");
-
-    wsRef.current = socket;
-    setWs(socket);
+  // Typing indicator (local only, no WS needed)
+  const handleTyping = () => {
+    setIsTyping(false); // suppress for Supabase Realtime
   };
 
   const sendMessage = async (e) => {
@@ -163,72 +144,36 @@ export default function NegotiationRoom() {
 
     const content = newMessage.trim();
 
-    // ── CONTACT INFO FILTER ──────────────────────────────────────
     if (containsContactInfo(content)) {
       setContactWarning(true);
       setTimeout(() => setContactWarning(false), 6000);
-      return; // Block the message from being sent
+      return;
     }
     setContactWarning(false);
     setNewMessage("");
 
     const currentUid = auth.currentUser?.uid;
-
-    // Optimistically add message to UI
     const tempMsg = {
       id: "temp-" + Date.now(),
-      room_id: id,
-      sender_id: currentUid,
-      content: content,
-      timestamp: new Date().toISOString()
+      room_id: id, sender_id: currentUid,
+      content: content, timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, tempMsg]);
 
-    const activeWs = wsRef.current || ws;
-
-    // If WebSocket is open, send via WebSocket
-    if (activeWs && activeWs.readyState === WebSocket.OPEN) {
-      try {
-        activeWs.send(JSON.stringify({
-          type: "chat",
-          sender_id: currentUid,
-          content: content
-        }));
-        return;
-      } catch (err) {
-        console.error("WS send failed, using HTTP fallback", err);
-      }
-    }
-
-    // Fallback to HTTP POST
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = tokenRef.current || await auth.currentUser?.getIdToken();
       if (!token) return;
-
       const res = await fetch(`${API_BASE}/api/negotiations/rooms/${id}/messages`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ content: content })
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ content })
       });
-
       if (res.ok) {
         const savedMsg = await res.json();
         setMessages(prev => prev.map(m => m.id === tempMsg.id ? savedMsg : m));
       }
     } catch (err) {
-      console.error("HTTP message post failed:", err);
-    }
-  };
-
-  const handleTyping = () => {
-    if (ws) {
-      ws.send(JSON.stringify({
-        type: "typing",
-        sender_id: auth.currentUser?.uid
-      }));
+      console.error("Message send failed:", err);
     }
   };
 
@@ -311,87 +256,99 @@ export default function NegotiationRoom() {
 
   if (!room) return <div className="min-h-screen bg-muted flex items-center justify-center text-primary font-mono text-sm">Connecting to secure terminal...</div>;
 
-  const isBuyer = room.buyer_id === auth.currentUser?.uid;
-  const partnerName = isBuyer ? "Verified Supplier" : "Verified Buyer";
+  const isBuyer = room.buyerCompanyId === room.buyer_user_id || room.buyer_user_id === auth.currentUser?.uid;
+  const myRole = room.buyer_user_id === auth.currentUser?.uid ? "Buyer" : "Seller";
+  const isBuyListing = room.listing_type === "RFQ";
+  const commodity = room.commodity_name || room.listing_title || "Commodity";
+  const partnerName = myRole === "Buyer" ? (room.seller_company_name || "Supplier") : (room.buyer_company_name || "Buyer");
+
+  // Get latest offer from messages
+  const offerMessages = messages.filter(m => m.offer_version);
+  const latestOffer = offerMessages.length > 0 ? offerMessages[offerMessages.length - 1].offer_version : null;
 
   return (
     <div className="min-h-screen bg-muted text-foreground font-sans selection:bg-primary/30 flex flex-col h-screen overflow-hidden">
-      {/* Header */}
-      <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-heading font-medium text-lg">{partnerName}</h1>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </span>
+
+      {/* ── Conversation Header (Enterprise Context Bar) ── */}
+      <header className="bg-card border-b border-border shrink-0">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 sm:px-6 h-14">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/inbox")} className="text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isBuyListing ? "bg-blue-900/40" : "bg-orange-900/40"}`}>
+              {isBuyListing ? <ShoppingCart className="w-4 h-4 text-blue-400" /> : <Package className="w-4 h-4 text-orange-400" />}
             </div>
-            <div className="text-[0.65rem] font-mono tracking-widest text-primary uppercase">
-              Online · End-to-End Encrypted
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-foreground truncate max-w-[160px] sm:max-w-xs">{commodity}</span>
+                <span className={`text-[0.55rem] font-bold px-1.5 py-0.5 rounded border ${isBuyListing ? "text-blue-400 bg-blue-900/30 border-blue-800" : "text-orange-400 bg-orange-900/30 border-orange-800"}`}>
+                  {isBuyListing ? "BUY REQ" : "SELL OFFER"}
+                </span>
+                <span className={`text-[0.55rem] font-bold px-1.5 py-0.5 rounded border ${
+                  room.status === "ACTIVE" ? "text-emerald-400 bg-emerald-900/30 border-emerald-800" :
+                  room.status === "ACCEPTED" ? "text-blue-400 bg-blue-900/30 border-blue-800" :
+                  "text-slate-400 bg-slate-800 border-slate-700"
+                }`}>{room.status}</span>
+              </div>
+              <div className="text-[0.6rem] text-muted-foreground flex items-center gap-2">
+                <Building2 className="w-3 h-3" />
+                <span className="font-medium text-primary/80">{myRole}</span>
+                <ChevronRight className="w-3 h-3 opacity-40" />
+                <span>{partnerName}</span>
+                {room.origin_country && <><span className="opacity-40">·</span><MapPin className="w-3 h-3" />{room.origin_country}</>}
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSummary(s => !s)}
+              className="hidden lg:flex items-center gap-1.5 text-[0.65rem] font-mono tracking-widest uppercase px-3 py-1.5 border border-primary/40 text-primary bg-primary/10 rounded-md hover:bg-primary hover:text-white transition-colors"
+            >
+              <TrendingUp className="w-3 h-3" /> Trade Summary
+            </button>
+            <button
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-white/5 transition-colors"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+            {showMoreMenu && (
+              <div className="absolute right-4 top-14 w-52 bg-card border border-border rounded-lg shadow-xl z-50 py-1 font-sans text-xs">
+                <button onClick={() => { navigator.clipboard.writeText(id); toast.success("Copied!"); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-white/5 text-foreground flex items-center gap-2">📋 Copy Room ID</button>
+                <button onClick={() => { toast.info("Report logged."); setShowMoreMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-white/5 text-rose-400 flex items-center gap-2">⚠️ Report Room</button>
+                <div className="border-t border-border my-1" />
+                <button onClick={() => navigate("/inbox")} className="w-full text-left px-4 py-2 hover:bg-white/5 text-muted-foreground flex items-center gap-2">🚪 Back to Inbox</button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-4 relative">
-          <button 
-            onClick={() => setShowRfqDetailsModal(true)}
-            className="text-[0.65rem] font-mono tracking-widest uppercase px-3 py-1.5 border border-primary/40 text-primary bg-primary/10 rounded-md hover:bg-primary hover:text-white transition-colors"
-          >
-            View RFQ Details
-          </button>
-          
-          <button 
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-white/5 transition-colors"
-            title="More Options"
-          >
-            <MoreVertical className="w-5 h-5" />
-          </button>
 
-          {/* More Options Dropdown Menu */}
-          {showMoreMenu && (
-            <div className="absolute right-0 top-10 w-52 bg-card border border-border rounded-lg shadow-xl z-50 py-1 font-sans text-xs">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(id);
-                  toast.success("Room ID copied to clipboard!");
-                  setShowMoreMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-white/5 text-foreground flex items-center gap-2"
-              >
-                📋 Copy Room ID
-              </button>
-              <button
-                onClick={() => {
-                  setShowRfqDetailsModal(true);
-                  setShowMoreMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-white/5 text-foreground flex items-center gap-2"
-              >
-                📊 Deal Summary
-              </button>
-              <button
-                onClick={() => {
-                  toast.info("Report logged. Compliance team notified.");
-                  setShowMoreMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-white/5 text-rose-400 flex items-center gap-2"
-              >
-                ⚠️ Report Room
-              </button>
-              <div className="border-t border-border my-1" />
-              <button
-                onClick={() => navigate("/inbox")}
-                className="w-full text-left px-4 py-2 hover:bg-white/5 text-muted-foreground flex items-center gap-2"
-              >
-                🚪 Leave Room
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Context Pills Bar */}
+        {(room.quantity || room.price || room.unit) && (
+          <div className="flex items-center gap-3 px-4 sm:px-6 pb-3 overflow-x-auto">
+            {room.quantity && (
+              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-white/5 border border-white/10 px-2 py-1 rounded-md whitespace-nowrap">
+                <Hash className="w-3 h-3 text-primary/60" />
+                <span className="text-muted-foreground">Qty:</span>
+                <span className="text-foreground font-semibold">{room.quantity} {room.unit || "MT"}</span>
+              </span>
+            )}
+            {room.price && (
+              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-white/5 border border-white/10 px-2 py-1 rounded-md whitespace-nowrap">
+                <span className="text-muted-foreground">Listed:</span>
+                <span className="text-emerald-400 font-semibold">${parseFloat(room.price).toLocaleString()}</span>
+              </span>
+            )}
+            {latestOffer && (
+              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-primary/10 border border-primary/30 px-2 py-1 rounded-md whitespace-nowrap">
+                <span className="text-primary/60">Latest Offer v{latestOffer.version}:</span>
+                <span className="text-primary font-bold">${latestOffer.card?.price?.toLocaleString()}</span>
+              </span>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Main Chat Area */}
@@ -580,14 +537,65 @@ export default function NegotiationRoom() {
           </div>
         </div>
 
-        {/* Right Panel: Negotiation Tools (For Phase 3) */}
-        <div className="hidden lg:flex w-96 bg-card border-l border-border flex-col shrink-0">
+        {/* Right Panel: Trade Summary + Offer Form */}
+        <div className={`${showSummary ? "hidden lg:flex" : "hidden"} w-80 bg-card border-l border-border flex-col shrink-0`}>
           <div className="p-4 border-b border-border flex justify-between items-center">
-            <h2 className="text-sm font-heading font-medium">Negotiation Toolkit</h2>
+            <h2 className="text-sm font-heading font-medium">Trade Summary</h2>
             {showOfferForm && kybStatus === "VERIFIED" && (
               <button onClick={() => setShowOfferForm(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
             )}
           </div>
+
+          {/* Trade Summary Data — always shown at top */}
+          {!showOfferForm && (
+            <div className="p-4 border-b border-border space-y-2.5 text-xs">
+              {[
+                { label: "Commodity", value: commodity },
+                { label: "Type", value: room.listing_type === "RFQ" ? "Buy Requirement" : "Sell Offer" },
+                { label: "Quantity", value: room.quantity ? `${room.quantity} ${room.unit || "MT"}` : "—" },
+                { label: "Listed Price", value: room.price ? `$${parseFloat(room.price).toLocaleString()} / ${room.unit || "MT"}` : "Open" },
+                { label: "Seller", value: room.seller_company_name || "—" },
+                { label: "Buyer", value: room.buyer_company_name || "—" },
+                { label: "Origin", value: room.origin_country || "—" },
+                { label: "Status", value: room.status || "ACTIVE" },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-start gap-2">
+                  <span className="text-muted-foreground font-mono uppercase text-[0.6rem] tracking-wide shrink-0">{label}</span>
+                  <span className="font-semibold text-foreground text-right text-[0.7rem]">{value}</span>
+                </div>
+              ))}
+
+              {/* Latest Offer */}
+              {latestOffer && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-[0.6rem] font-mono text-primary uppercase tracking-wide mb-1.5">Latest Offer v{latestOffer.version}</p>
+                  {[
+                    { label: "Price", value: `$${latestOffer.card?.price?.toLocaleString()} / MT` },
+                    { label: "Quantity", value: `${latestOffer.card?.quantity} MT` },
+                    { label: "Incoterms", value: latestOffer.card?.incoterms },
+                    { label: "Payment", value: latestOffer.card?.payment_terms },
+                    { label: "Delivery", value: latestOffer.card?.delivery_date },
+                    { label: "Dest", value: latestOffer.card?.destination },
+                  ].map(({ label, value }) => value && (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-muted-foreground text-[0.6rem]">{label}</span>
+                      <span className="text-primary font-mono font-bold text-[0.65rem]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {kybStatus === "VERIFIED" && room.status === "ACTIVE" && (
+                <button
+                  onClick={() => setShowOfferForm(true)}
+                  className="w-full mt-3 border border-primary text-primary text-xs px-4 py-2 rounded-md hover:bg-primary/10 transition-colors font-semibold"
+                >
+                  + Create Formal Offer
+                </button>
+              )}
+            </div>
+          )}
+
           
           {kybStatus !== "VERIFIED" ? (
             <div className="flex-1 p-6 flex flex-col items-center justify-center text-center opacity-70">

@@ -132,8 +132,24 @@ class NegotiationRoom(BaseModel):
     rfqId: Optional[str] = None
     productId: Optional[str] = None
     status: str = "ACTIVE"
+    # Listing context — snapshotted at room creation time
+    listing_type: str = "PRODUCT"               # "PRODUCT" | "RFQ"
+    listing_title: Optional[str] = None         # commodity name as title
+    commodity_name: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: str = "MT"
+    price: Optional[float] = None
+    buyer_company_name: Optional[str] = None
+    seller_company_name: Optional[str] = None
+    origin_country: Optional[str] = None
+    last_message_at: Optional[str] = None
+    unread_buyer: int = 0
+    unread_seller: int = 0
+    buyer_user_id: Optional[str] = None
+    seller_user_id: Optional[str] = None
     createdAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
     updatedAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
+
 
 class OfferCard(BaseModel):
     price: float = 0.0
