@@ -123,6 +123,22 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
 
   return (
     <>
+      {/* MANDATORY STEP 3 INCOMPLETE BANNER */}
+      {user && (!dbUser?.companyName || localStorage.getItem("step3_complete") !== "true") && (
+        <div className="bg-amber-500 text-slate-950 font-bold px-4 py-2 flex items-center justify-between text-xs sm:text-sm shadow-md animate-in slide-in-from-top-2 z-50">
+          <div className="flex items-center gap-2 max-w-4xl truncate">
+            <span className="bg-slate-950 text-amber-400 font-mono text-[0.65rem] px-2 py-0.5 rounded-full uppercase shrink-0">Action Required</span>
+            <span className="truncate">⚠️ Incomplete Verification (Step 3): Please add Company Name, GST/IEC, and Country to start trading!</span>
+          </div>
+          <button
+            onClick={() => navigate("/register?step=3")}
+            className="bg-slate-950 hover:bg-slate-900 text-white font-bold px-3 py-1 rounded-lg text-xs transition-colors shrink-0 ml-3"
+          >
+            Complete Step 3 →
+          </button>
+        </div>
+      )}
+
       <header 
         className={`h-[72px] border-b flex items-center justify-between shrink-0 ${bgColor} ${padding} ${
           isFixed ? "fixed top-0 w-full z-50 backdrop-blur-md" : ""

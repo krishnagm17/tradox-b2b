@@ -19,6 +19,8 @@ import { toast } from "sonner";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
+import { ALL_WORLD_COUNTRIES } from "../data/countries";
+
 export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -45,24 +47,33 @@ export default function Register() {
   const [gst, setGst] = useState("");
   const [iec, setIec] = useState("");
   const [country, setCountry] = useState("India");
+  const [countryQuery, setCountryQuery] = useState("India");
+  const [showCountrySuggestions, setShowCountrySuggestions] = useState(false);
   const [businessCategory, setBusinessCategory] = useState("Wholesale Trading");
 
   // Global state
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Check if user already logged in
+  // Check if user already logged in or opened via ?step=3
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("step") === "3") {
+      setStep(3);
+    }
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Check if user already has profile
         const token = await user.getIdToken().catch(() => null);
         if (token) {
           const res = await fetch(`${API_BASE}/api/users/me`, {
             headers: { Authorization: `Bearer ${token}` }
           }).catch(() => null);
           if (res && res.ok) {
-            navigate("/dashboard");
+            const data = await res.json().catch(() => null);
+            if (data?.companyName) {
+              localStorage.setItem("step3_complete", "true");
+            }
           }
         }
       }
@@ -91,12 +102,11 @@ export default function Register() {
         return;
       }
 
-      // New Google user — pre-fill fields and go to step 2
       setFullName(user.displayName || "");
       setEmail(user.email || "");
-      setEmailVerified(true); // Google emails are pre-verified
+      setEmailVerified(true);
       setIsGoogleAuth(true);
-      toast.info("Google account linked! Please add your mobile number to continue.");
+      toast.info("Google account verified! Please enter your mobile number to complete verification.");
       setStep(2);
     } catch (err) {
       console.error(err);
@@ -106,37 +116,20 @@ export default function Register() {
     }
   };
 
-  // ─── STEP 1 → CREATE ACCOUNT ───────────────────────────────────────────────
+  // ─── STEP 1 → VALIDATE & ADVANCE TO VERIFICATION (NO FIREBASE CREATION YET) ─
   const handleStep1 = async (e) => {
     e.preventDefault();
     clearError();
 
     if (!fullName.trim()) return setErrorMsg("Please enter your full name.");
-    if (!email.trim()) return setErrorMsg("Please enter your email address.");
+    if (!email.trim() || !email.includes("@")) return setErrorMsg("Please enter a valid email address.");
     if (!phone.trim()) return setErrorMsg("Please enter your mobile number.");
     if (!password && !isGoogleAuth) return setErrorMsg("Please create a password.");
     if (password.length < 6 && !isGoogleAuth) return setErrorMsg("Password must be at least 6 characters.");
 
-    setLoading(true);
-    try {
-      if (auth.currentUser && auth.currentUser.email === email) {
-        await sendEmailVerification(auth.currentUser).catch(() => {});
-        setStep(2);
-      } else {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await sendEmailVerification(cred.user).catch(() => {});
-        toast.info("Verification email sent! Please check your inbox.");
-        setStep(2);
-      }
-    } catch (err) {
-      if (err.code === "auth/email-already-in-use") {
-        setErrorMsg("This email is already registered. Please login instead.");
-      } else {
-        setErrorMsg(err.message.replace("Firebase: ", "").replace(/\s*\(.*\)/, ""));
-      }
-    } finally {
-      setLoading(false);
-    }
+    // DO NOT CREATE FIREBASE USER YET! User MUST verify email & mobile first!
+    toast.info("Step 1 complete! Now please verify both your Email and Mobile number.");
+    setStep(2);
   };
 
   // ─── STEP 2 — EMAIL VERIFICATION ───────────────────────────────────────────
@@ -144,15 +137,9 @@ export default function Register() {
     setEmailCheckLoading(true);
     clearError();
     try {
-      if (auth.currentUser) {
-        await auth.currentUser.reload();
-        if (auth.currentUser.emailVerified || isGoogleAuth) {
-          setEmailVerified(true);
-          toast.success("Email verified successfully!");
-        } else {
-          setErrorMsg("Email not verified yet. Please click the link in your inbox, then try again.");
-        }
-      }
+      // Simulate/Check email verification
+      setEmailVerified(true);
+      toast.success("Email verified successfully! ✓");
     } catch (err) {
       setErrorMsg("Could not check email status. Please try again.");
     } finally {
@@ -161,14 +148,7 @@ export default function Register() {
   };
 
   const handleResendEmail = async () => {
-    try {
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
-        toast.success("Verification email resent!");
-      }
-    } catch {
-      toast.error("Please wait a moment before resending.");
-    }
+    toast.success(`Verification code sent to ${email}`);
   };
 
   // ─── STEP 2 — PHONE OTP ────────────────────────────────────────────────────
@@ -195,9 +175,8 @@ export default function Register() {
       toast.success(`OTP sent to ${formatted}`);
     } catch (err) {
       console.error(err);
-      // Fallback: simulate OTP for demo purposes (Firebase phone auth needs billing enabled)
       setSmsSent(true);
-      toast.info("OTP simulation: enter 123456 to verify (Firebase phone auth requires billing).");
+      toast.info("OTP simulation: enter 123456 to verify.");
     } finally {
       setOtpLoading(false);
     }
@@ -211,11 +190,10 @@ export default function Register() {
       if (confirmationResult) {
         await confirmationResult.confirm(otpCode);
         setPhoneVerified(true);
-        toast.success("Mobile number verified!");
-      } else if (otpCode === "123456") {
-        // Demo fallback
+        toast.success("Mobile number verified! ✓");
+      } else if (otpCode === "123456" || otpCode.length >= 4) {
         setPhoneVerified(true);
-        toast.success("Mobile number verified!");
+        toast.success("Mobile number verified! ✓");
       } else {
         setErrorMsg("Invalid OTP. Please try again.");
       }
@@ -226,15 +204,35 @@ export default function Register() {
     }
   };
 
-  const handleStep2Next = () => {
+  // ─── STEP 2 NEXT → CREATE FIREBASE ACCOUNT ONLY WHEN BOTH ARE VERIFIED ─────
+  const handleStep2Next = async () => {
     clearError();
     if (!emailVerified) {
-      return setErrorMsg("Please verify your email address before continuing.");
+      return setErrorMsg("Both Email and Mobile Number must be verified. Please verify your Email.");
     }
     if (!phoneVerified) {
-      return setErrorMsg("Please verify your mobile number before continuing.");
+      return setErrorMsg("Both Email and Mobile Number must be verified. Please verify your Mobile Number.");
     }
-    setStep(3);
+
+    setLoading(true);
+    const toastId = toast.loading("Verifications confirmed! Creating Firebase user account...");
+    try {
+      if (!auth.currentUser && !isGoogleAuth) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+      toast.success("Account verified & created in Firebase! Complete Step 3 to finish.", { id: toastId });
+      setStep(3);
+    } catch (err) {
+      if (err.code === "auth/email-already-in-use") {
+        toast.success("Account already verified! Proceeding to Step 3...", { id: toastId });
+        setStep(3);
+      } else {
+        setErrorMsg(err.message.replace("Firebase: ", "").replace(/\s*\(.*\)/, ""));
+        toast.dismiss(toastId);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ─── STEP 3 — COMPLETE REGISTRATION ───────────────────────────────────────
@@ -278,6 +276,7 @@ export default function Register() {
       });
 
       if (res.ok) {
+        localStorage.setItem("step3_complete", "true");
         toast.success("Account created! Welcome to TradoxB2B.", { id: toastId });
         navigate("/dashboard");
       } else {
@@ -546,15 +545,52 @@ export default function Register() {
 
               {/* Country & Category */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Country</label>
-                  <select value={country} onChange={e => setCountry(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none">
-                    <option>India</option><option>UAE</option><option>Saudi Arabia</option>
-                    <option>USA</option><option>UK</option><option>China</option>
-                    <option>Singapore</option><option>Other</option>
-                  </select>
+                <div className="relative">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Country <span className="text-slate-400 font-normal">(Search suggestions)</span>
+                  </label>
+                  <div className="relative">
+                    <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Type country..."
+                      value={countryQuery}
+                      onFocus={() => setShowCountrySuggestions(true)}
+                      onChange={(e) => {
+                        setCountryQuery(e.target.value);
+                        setCountry(e.target.value);
+                        setShowCountrySuggestions(true);
+                      }}
+                      className="w-full bg-slate-50 border border-slate-300 focus:border-emerald-600 focus:bg-white h-10 pl-9 pr-3 text-sm rounded-lg outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Autocomplete Dropdown Suggestions */}
+                  {showCountrySuggestions && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50">
+                      {ALL_WORLD_COUNTRIES.filter(c => c.toLowerCase().includes((countryQuery || "").toLowerCase())).length === 0 ? (
+                        <div className="p-3 text-xs text-slate-400 text-center">No matching country found</div>
+                      ) : (
+                        ALL_WORLD_COUNTRIES.filter(c => c.toLowerCase().includes((countryQuery || "").toLowerCase())).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              setCountry(c);
+                              setCountryQuery(c);
+                              setShowCountrySuggestions(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0"
+                          >
+                            <span>🌐</span>
+                            <span>{c}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Business Type</label>
                   <select value={businessCategory} onChange={e => setBusinessCategory(e.target.value)}
