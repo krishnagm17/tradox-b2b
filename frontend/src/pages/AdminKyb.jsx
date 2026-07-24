@@ -24,7 +24,22 @@ export default function AdminKyb() {
   const [isAdmin, setIsAdmin] = useState(true);
   const [isSuperOwner, setIsSuperOwner] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [submissions, setSubmissions] = useState([]);
+  const [submissions, setSubmissions] = useState([
+    {
+      id: "local-user-1",
+      companyName: "Krishna G M Company",
+      userEmail: "krishnametri223344@gmail.com",
+      userName: "Krishna G M",
+      mobile: "+917777777777",
+      submittedAt: new Date().toISOString(),
+      kybStatus: localStorage.getItem("kyb_status") || "SUBMITTED",
+      documentName: localStorage.getItem("kyb_submitted_doc") || "letter1.pdf",
+      documentUrl: localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data"),
+      country: "India",
+      gst: null,
+      iec: null
+    }
+  ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState({});
   const [rejectReasons, setRejectReasons] = useState({});
