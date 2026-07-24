@@ -88,8 +88,12 @@ export default function KybWizard() {
 
       const finalFileUrl = fileUrl || base64Data;
 
-      // Submit KYB status
+      // Submit KYB status with full user info so admin sees correct name/email
       try {
+        const userName = user?.displayName || user?.email?.split("@")[0] || "Unknown User";
+        const userEmail = user?.email || "unknown@user.com";
+        const companyName = `${userName} Company`;
+
         const res = await fetch(`${API_BASE}/api/users/kyb`, {
           method: "POST",
           headers: {
@@ -100,7 +104,12 @@ export default function KybWizard() {
             document_type: "certificate_of_incorporation",
             file_name: certFile.name,
             file_url: finalFileUrl,
-            status: "SUBMITTED"
+            status: "SUBMITTED",
+            // User info for admin panel display
+            user_name: userName,
+            user_email: userEmail,
+            company_name: companyName,
+            mobile: user?.phoneNumber || "Not Provided"
           })
         });
 
@@ -113,6 +122,7 @@ export default function KybWizard() {
         console.warn("Backend submit notice:", submitErr);
         toast.success("KYB document submitted successfully!", { id: toastId });
       }
+
 
       // Save submission state locally with full data URL
       localStorage.setItem("kyb_submitted_doc", certFile.name);

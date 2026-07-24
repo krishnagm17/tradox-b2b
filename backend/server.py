@@ -575,17 +575,46 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id=room_id)
 
-# Global fallback store for KYB submissions to ensure zero lost uploads
-KYB_SUBMISSIONS_STORE = []
+# ─── PERSISTENT KYB SUBMISSIONS STORE (JSON file-backed, survives restarts) ──
+import json
+
+KYB_STORE_PATH = os.path.join(os.path.dirname(__file__), "kyb_submissions_store.json")
+
+def load_kyb_store():
+    """Load all KYB submissions from persistent JSON file."""
+    try:
+        if os.path.exists(KYB_STORE_PATH):
+            with open(KYB_STORE_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, list) else []
+    except Exception as e:
+        print("Notice loading KYB store:", e)
+    return []
+
+def save_kyb_store(submissions: list):
+    """Save all KYB submissions to persistent JSON file."""
+    try:
+        with open(KYB_STORE_PATH, "w", encoding="utf-8") as f:
+            json.dump(submissions, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Notice saving KYB store:", e)
+
+# In-memory cache (loaded at startup)
+KYB_SUBMISSIONS_STORE = load_kyb_store()
 
 @app.post("/api/users/kyb")
 async def kyb(data: dict = Body(default={}), token_data: dict = Depends(verify_token)):
     db = get_db()
     uid = token_data.get("uid") or str(uuid.uuid4())
-    email = token_data.get("email") or "user@tradox.b2b"
+    email = token_data.get("email") or data.get("user_email") or "user@tradox.b2b"
     doc_name = data.get("file_name", "Certificate_of_Incorporation.pdf") if isinstance(data, dict) else "Certificate_of_Incorporation.pdf"
     doc_url = data.get("file_url") if isinstance(data, dict) else None
+    # Prefer user-supplied info from request body
+    user_name = (data.get("user_name") or token_data.get("name") or token_data.get("full_name") or email.split("@")[0]) if isinstance(data, dict) else email.split("@")[0]
+    company_name = (data.get("company_name") or token_data.get("company_name") or token_data.get("companyName") or f"{user_name} Company") if isinstance(data, dict) else f"{user_name} Company"
+    mobile = (data.get("mobile") or token_data.get("mobile") or token_data.get("phone") or "Not Provided") if isinstance(data, dict) else "Not Provided"
     now_str = datetime.utcnow().isoformat()
+
     
     # 1. Update or Insert into Supabase
     try:
@@ -623,14 +652,14 @@ async def kyb(data: dict = Body(default={}), token_data: dict = Depends(verify_t
     except Exception as e:
         print("Notice updating/inserting user kyb:", e)
         
-    # 2. Always record in KYB_SUBMISSIONS_STORE to guarantee admin visibility
+    # 2. Always record in persistent KYB store (survives server restarts)
     submission = {
         "id": uid,
         "userId": uid,
-        "companyName": token_data.get("company_name") or token_data.get("companyName") or "Registered Company",
+        "companyName": company_name,
         "userEmail": email,
-        "userName": token_data.get("name") or token_data.get("full_name") or email.split("@")[0],
-        "mobile": token_data.get("mobile") or token_data.get("phone") or "Not Provided",
+        "userName": user_name,
+        "mobile": mobile,
         "submittedAt": now_str,
         "kybStatus": "SUBMITTED",
         "documentName": doc_name,
@@ -640,10 +669,12 @@ async def kyb(data: dict = Body(default={}), token_data: dict = Depends(verify_t
         "iec": None
     }
     
-    # Remove existing submission for same user if exists, then add latest
+    # Remove existing submission for same user, then insert latest
     global KYB_SUBMISSIONS_STORE
     KYB_SUBMISSIONS_STORE = [s for s in KYB_SUBMISSIONS_STORE if s.get("id") != uid and s.get("userEmail") != email]
     KYB_SUBMISSIONS_STORE.insert(0, submission)
+    # Persist to disk so admin sees it even after server restart
+    save_kyb_store(KYB_SUBMISSIONS_STORE)
     
     return {"status": "success", "submission": submission}
 
@@ -709,6 +740,16 @@ async def get_admin_kyb():
 @app.post("/api/admin/kyb/{user_id}/approve")
 async def approve_admin_kyb(user_id: str):
     db = get_db()
+    # Update persistent KYB store
+    global KYB_SUBMISSIONS_STORE
+    updated = False
+    for sub in KYB_SUBMISSIONS_STORE:
+        if sub.get("id") == user_id or sub.get("userId") == user_id:
+            sub["kybStatus"] = "VERIFIED"
+            updated = True
+    if updated:
+        save_kyb_store(KYB_SUBMISSIONS_STORE)
+    # Update Supabase
     u_res = db.table("users").select("*").eq("id", user_id).execute()
     if u_res.data:
         u = u_res.data[0]
@@ -727,6 +768,17 @@ async def approve_admin_kyb(user_id: str):
 async def reject_admin_kyb(user_id: str, data: dict = Body(default={})):
     db = get_db()
     reason = data.get("reason", "") if isinstance(data, dict) else ""
+    # Update persistent KYB store
+    global KYB_SUBMISSIONS_STORE
+    updated = False
+    for sub in KYB_SUBMISSIONS_STORE:
+        if sub.get("id") == user_id or sub.get("userId") == user_id:
+            sub["kybStatus"] = "REJECTED"
+            sub["rejectReason"] = reason
+            updated = True
+    if updated:
+        save_kyb_store(KYB_SUBMISSIONS_STORE)
+    # Update Supabase
     u_res = db.table("users").select("*").eq("id", user_id).execute()
     if u_res.data:
         u = u_res.data[0]
