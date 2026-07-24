@@ -193,8 +193,8 @@ export default function AdminKyb() {
   if (!isAdmin) return <div className="flex-1 flex items-center justify-center min-h-screen"><p className="text-xl text-red-600 font-bold">Unauthorized Access</p></div>;
 
   const filtered = submissions.filter(s => s.status === activeTab && 
-    (s.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     s.user_email?.toLowerCase().includes(searchQuery.toLowerCase()))
+    ((s.company_name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+     (s.user_email || "").toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (

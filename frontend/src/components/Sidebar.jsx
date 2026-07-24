@@ -18,7 +18,7 @@ export default function Sidebar() {
     }
   };
 
-  const currentEmail = auth.currentUser?.email?.trim().toLowerCase() || "";
+  const currentEmail = (auth.currentUser?.email || "").trim().toLowerCase();
   const authorizedEmails = getAuthorizedEmails();
   const isOwner = currentEmail === "krishnametri223344@gmail.com" || 
                   currentEmail === "owner@tradoxb2b.com" || 
