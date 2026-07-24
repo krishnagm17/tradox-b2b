@@ -43,6 +43,7 @@ export default function AdminKyb() {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState({});
   const [rejectReasons, setRejectReasons] = useState({});
+  const [previewDoc, setPreviewDoc] = useState(null);
   
   // Permission management states
   const [showPermModal, setShowPermModal] = useState(false);
