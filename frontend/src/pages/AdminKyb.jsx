@@ -85,114 +85,146 @@ export default function AdminKyb() {
   const fetchSubmissions = async (user) => {
     setLoading(true);
     try {
-      const token = await user?.getIdToken().catch(() => null);
-      let rawData = [];
-      if (token) {
-        const res = await fetch(`${API_BASE}/api/admin/kyb`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(() => null);
-        if (res && res.ok) {
-          rawData = await res.json().catch(() => []);
+      const latestDoc = localStorage.getItem("kyb_submitted_doc");
+      const latestUrl = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+      const latestStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
+
+      // STEP 1: Always sync latest submission into kyb_admin_store
+      if (latestDoc && latestUrl) {
+        try {
+          const uid = user?.uid || "local-user-1";
+          const userEmail = user?.email || "krishnametri223344@gmail.com";
+          const userName = user?.displayName || userEmail.split("@")[0] || "Krishna G M";
+          const adminStore = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
+
+          // Find existing entry for this user
+          const existingIdx = adminStore.findIndex(e => e.id === uid || e.userEmail === userEmail);
+          const updatedEntry = {
+            id: uid,
+            userEmail: userEmail,
+            userName: userName,
+            companyName: adminStore[existingIdx]?.companyName || `${userName} Company`,
+            documentName: latestDoc,
+            documentUrl: latestUrl,
+            kybStatus: latestStatus,
+            submittedAt: adminStore[existingIdx]?.submittedAt || new Date().toISOString(),
+            mobile: user?.phoneNumber || adminStore[existingIdx]?.mobile || "+917777777777",
+            country: adminStore[existingIdx]?.country || "India",
+            gst: adminStore[existingIdx]?.gst || null,
+            iec: adminStore[existingIdx]?.iec || null,
+          };
+
+          if (existingIdx >= 0) {
+            adminStore[existingIdx] = updatedEntry;
+          } else {
+            adminStore.unshift(updatedEntry);
+          }
+          localStorage.setItem("kyb_admin_store", JSON.stringify(adminStore));
+        } catch (syncErr) {
+          console.warn("Admin store sync notice:", syncErr);
         }
       }
 
-      let formatted = [];
-      const localDoc = localStorage.getItem("kyb_submitted_doc") || "letter1.pdf";
-      const localUrl = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+      // STEP 2: Load local admin store (now guaranteed up-to-date)
+      const localAdminStore = (() => {
+        try { return JSON.parse(localStorage.getItem("kyb_admin_store") || "[]"); } catch { return []; }
+      })();
 
-      if (Array.isArray(rawData) && rawData.length > 0) {
-        formatted = rawData.map((item, idx) => {
-          let docUrl = item.documentUrl || localUrl;
-          const uEmail = item.userEmail || user?.email || "krishnametri223344@gmail.com";
-          const uName = item.userName || user?.displayName || "Krishna G M";
-          const uMobile = item.mobile || "+917777777777";
-
-          return {
-            id: item.id || item.userId || `sub-${idx}`,
-            companyName: item.companyName || `${uName} Company`,
-            userEmail: uEmail,
-            userName: uName,
-            mobile: uMobile,
-            submittedAt: item.submittedAt || new Date().toISOString(),
-            kybStatus: item.kybStatus || localStorage.getItem("kyb_status") || "SUBMITTED",
-            documentName: item.documentName || localDoc,
-            documentUrl: docUrl,
-            country: item.country || "India",
-            gst: item.gst || null,
-            iec: item.iec || null
-          };
-        });
+      // STEP 3: Try to fetch backend submissions
+      let rawData = [];
+      try {
+        const token = await user?.getIdToken().catch(() => null);
+        if (token) {
+          const res = await fetch(`${API_BASE}/api/admin/kyb`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => null);
+          if (res && res.ok) {
+            rawData = await res.json().catch(() => []);
+          }
+        }
+      } catch (fetchErr) {
+        console.warn("Backend fetch notice:", fetchErr);
       }
 
-      // Default submission card fallback if empty
-      if (formatted.length === 0) {
+      // STEP 4: Merge — start with local store (has latest docs), enrich with backend data
+      const merged = [...localAdminStore];
+      const localIds = new Set(merged.map(i => i.id));
+      const localEmails = new Set(merged.map(i => i.userEmail));
+
+      if (Array.isArray(rawData)) {
+        for (const item of rawData) {
+          const id = item.id || item.userId;
+          const email = item.userEmail;
+          if (!localIds.has(id) && !localEmails.has(email)) {
+            // Backend-only entry — add it
+            merged.push({
+              id: id,
+              companyName: item.companyName || "Registered Company",
+              userEmail: email || "user@tradox.b2b",
+              userName: item.userName || (email || "user").split("@")[0],
+              mobile: item.mobile || "+917777777777",
+              submittedAt: item.submittedAt || new Date().toISOString(),
+              kybStatus: item.kybStatus || "SUBMITTED",
+              documentName: item.documentName || "Certificate_of_Incorporation.pdf",
+              documentUrl: item.documentUrl || null,
+              country: item.country || "India",
+              gst: item.gst || null,
+              iec: item.iec || null,
+            });
+          } else {
+            // Enrich local entry with backend status if doc URL is missing
+            const idx = merged.findIndex(m => m.id === id || m.userEmail === email);
+            if (idx >= 0 && !merged[idx].documentUrl && item.documentUrl) {
+              merged[idx] = { ...merged[idx], documentUrl: item.documentUrl };
+            }
+          }
+        }
+      }
+
+      // STEP 5: Fallback if still empty
+      if (merged.length === 0) {
         const uEmail = user?.email || "krishnametri223344@gmail.com";
         const uName = user?.displayName || "Krishna G M";
-        formatted.push({
-          id: "local-user-1",
+        merged.push({
+          id: user?.uid || "local-user-1",
           companyName: `${uName} Company`,
           userEmail: uEmail,
           userName: uName,
           mobile: "+917777777777",
           submittedAt: new Date().toISOString(),
-          kybStatus: localStorage.getItem("kyb_status") || "SUBMITTED",
-          documentName: localDoc,
-          documentUrl: localUrl,
+          kybStatus: latestStatus,
+          documentName: latestDoc || "letter1.pdf",
+          documentUrl: latestUrl || null,
           country: "India",
           gst: null,
-          iec: null
+          iec: null,
         });
       }
 
-      // Merge backend results with local admin store
-      const localAdminStore = (() => {
-        try { return JSON.parse(localStorage.getItem("kyb_admin_store") || "[]"); } catch { return []; }
-      })();
-
-      // Enrich formatted with local document URLs where backend has none
-      const enriched = formatted.map(item => {
-        if (!item.documentUrl) {
-          const local = localAdminStore.find(l => l.id === item.id || l.userEmail === item.userEmail);
-          if (local?.documentUrl) {
-            return { ...item, documentUrl: local.documentUrl, documentName: local.documentName || item.documentName };
-          }
-        }
-        return item;
-      });
-
-      // Add any local submissions not in backend results
-      const backendIds = new Set(enriched.map(i => i.id));
-      const backendEmails = new Set(enriched.map(i => i.userEmail));
-      for (const local of localAdminStore) {
-        if (!backendIds.has(local.id) && !backendEmails.has(local.userEmail)) {
-          enriched.push({
-            ...local,
-            kybStatus: localStorage.getItem("kyb_status") || local.kybStatus || "SUBMITTED"
-          });
-        }
-      }
-
-      setSubmissions(enriched.length > 0 ? enriched : localAdminStore);
+      setSubmissions(merged);
     } catch (err) {
       console.error("Notice fetching KYB submissions:", err);
+      const latestDoc = localStorage.getItem("kyb_submitted_doc");
+      const latestUrl = localStorage.getItem("kyb_submitted_url");
       setSubmissions([{
-        id: "local-user-1",
-        companyName: "Krishna G M Company",
+        id: user?.uid || "local-user-1",
+        companyName: `${user?.displayName || "Krishna G M"} Company`,
         userEmail: user?.email || "krishnametri223344@gmail.com",
         userName: user?.displayName || "Krishna G M",
         mobile: "+917777777777",
         submittedAt: new Date().toISOString(),
         kybStatus: localStorage.getItem("kyb_status") || "SUBMITTED",
-        documentName: "letter1.pdf",
-        documentUrl: localStorage.getItem("kyb_submitted_url"),
+        documentName: latestDoc || "letter1.pdf",
+        documentUrl: latestUrl || null,
         country: "India",
         gst: null,
-        iec: null
+        iec: null,
       }]);
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleApprove = async (userId, companyName) => {
     setActionLoading(prev => ({ ...prev, [userId]: "approve" }));
