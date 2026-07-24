@@ -130,9 +130,11 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
       >
         {/* Left: Logo */}
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")} title="Return to Home Page">
-          <div className="flex items-center justify-center w-8 h-8 border border-emerald-500/30 bg-emerald-500/10 rounded-md">
-            <span className="text-emerald-600 font-heading font-bold text-sm">T</span>
-          </div>
+          <img 
+            src="/logo.jpg" 
+            alt="TradoxB2B Logo" 
+            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-sm"
+          />
           <div className="flex flex-col">
             <span className="text-lg font-heading font-bold tracking-tight leading-tight text-slate-900">Tradox<span className="text-emerald-600">B2B</span></span>
             <span className="text-[0.55rem] font-mono tracking-[0.2em] text-slate-500 uppercase leading-none mt-0.5">Global Bulk Trade</span>

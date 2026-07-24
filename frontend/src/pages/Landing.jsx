@@ -75,9 +75,11 @@ export default function Landing() {
           
           {/* Brand Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-emerald-600/30">
-              T
-            </div>
+            <img 
+              src="/logo.jpg" 
+              alt="TradoxB2B Logo" 
+              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-md"
+            />
             <div className="flex flex-col">
               <span className="text-xl font-heading font-extrabold text-slate-900 tracking-tight leading-none">
                 Tradox<span className="text-emerald-600">B2B</span>

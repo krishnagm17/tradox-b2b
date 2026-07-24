@@ -50,11 +50,16 @@ export default function Sidebar() {
         {/* Logo Area */}
         <div 
           onClick={() => { navigate("/"); setIsOpen(false); }}
-          className="h-16 flex items-center justify-between px-6 border-b border-slate-800 shrink-0 cursor-pointer hover:bg-slate-800/50 transition-colors"
+          className="h-16 flex items-center gap-3 px-6 border-b border-slate-800 shrink-0 cursor-pointer hover:bg-slate-800/50 transition-colors"
           title="Return to Home Page"
         >
-          <div className="font-cinzel text-lg text-white tracking-[0.08em] leading-none uppercase">
-            <span className="text-[1.3em] text-emerald-400 font-bold">T</span>radox <span className="text-[1.3em] text-emerald-400 font-bold">B2B</span>
+          <img 
+            src="/logo.jpg" 
+            alt="TradoxB2B Logo" 
+            className="w-9 h-9 rounded-lg object-cover border border-slate-700 shadow-sm"
+          />
+          <div className="font-cinzel text-base text-white tracking-[0.08em] leading-none uppercase">
+            Tradox <span className="text-emerald-400 font-bold">B2B</span>
           </div>
         </div>
 
