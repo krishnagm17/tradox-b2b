@@ -189,27 +189,6 @@ export default function LiveBoard() {
           </div>
         </div>
 
-        {/* Commodity Prices Ticker */}
-        <div className="mb-6 p-3 bg-card border border-border rounded-lg flex gap-6 overflow-x-auto text-sm font-mono whitespace-nowrap">
-          {pricesError ? (
-            <span className="text-red-400">Live price unavailable</span>
-          ) : prices && prices.length > 0 ? (
-            prices.map((p, i) => {
-              // metals.live usually returns an array of objects e.g. {gold: 1234}
-              const key = Object.keys(p)[0];
-              const value = p[key];
-              if (!key) return null;
-              return (
-                <div key={i} className="flex gap-2 capitalize">
-                  <span className="text-muted-foreground">{key}:</span>
-                  <span className="text-emerald-400 font-medium">${value}</span>
-                </div>
-              );
-            })
-          ) : (
-            <span className="text-muted-foreground">Loading prices...</span>
-          )}
-        </div>
 
         {/* Tabs */}
         <div className="flex gap-4 mb-6 border-b border-border pb-2">
