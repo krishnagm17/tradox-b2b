@@ -298,10 +298,11 @@ export default function AdminKyb() {
     document.body.removeChild(a);
   };
 
-  const filtered = submissions.filter(s =>
-    s.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = (Array.isArray(submissions) ? submissions : []).filter(s =>
+    !searchQuery ||
+    s?.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s?.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleGrantPermission = (e) => {
@@ -385,9 +386,10 @@ export default function AdminKyb() {
     );
   }
 
-  const pending = submissions.filter(s => s.kybStatus === "SUBMITTED").length;
-  const verified = submissions.filter(s => s.kybStatus === "VERIFIED").length;
-  const rejected = submissions.filter(s => s.kybStatus === "REJECTED").length;
+  const subList = Array.isArray(submissions) ? submissions : [];
+  const pending = subList.filter(s => s && s.kybStatus === "SUBMITTED").length;
+  const verified = subList.filter(s => s && s.kybStatus === "VERIFIED").length;
+  const rejected = subList.filter(s => s && s.kybStatus === "REJECTED").length;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
