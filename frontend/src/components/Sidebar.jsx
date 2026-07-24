@@ -111,24 +111,7 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* Action Buttons */}
-        <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-around">
-          <Notifications />
-          <button 
-            onClick={() => { navigate("/profile"); setIsOpen(false); }}
-            className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors"
-            title="Profile Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={handleSignOut}
-            className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-            title="Sign Out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
+        {/* Action Buttons Removed per user request */}
 
         {/* Footer / User Info */}
         <div className="p-4">
