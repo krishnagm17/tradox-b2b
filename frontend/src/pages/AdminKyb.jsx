@@ -254,6 +254,52 @@ export default function AdminKyb() {
     }
   };
 
+  const handleViewDocument = (sub) => {
+    let rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+    if (!rawUrl || rawUrl.length < 10) {
+      toast.error("No document file found.");
+      return;
+    }
+
+    if (rawUrl.startsWith("data:")) {
+      try {
+        const arr = rawUrl.split(",");
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : "application/pdf";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+        return;
+      } catch (e) {
+        console.error("Error creating Blob URL:", e);
+      }
+    }
+
+    window.open(rawUrl, "_blank");
+  };
+
+  const handleDownloadDocument = (sub) => {
+    let rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+    const filename = sub.documentName || "Incorporation_Certificate.pdf";
+    if (!rawUrl || rawUrl.length < 10) {
+      toast.error("No document file found.");
+      return;
+    }
+
+    const a = document.createElement("a");
+    a.href = rawUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const filtered = submissions.filter(s =>
     s.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -469,23 +515,18 @@ export default function AdminKyb() {
                     </div>
                     
                     <div className="flex gap-2">
-                      <a 
-                        href={sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data") || "data:application/pdf;base64,JVBERi0xLjQKJSDl4uXmA%2B..."} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button 
+                        onClick={() => handleViewDocument(sub)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-1.5 px-3 rounded-lg text-center transition-colors flex items-center justify-center gap-1 shadow-sm"
                       >
                         <Eye className="w-3.5 h-3.5" /> View
-                      </a>
-                      <a 
-                        href={sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data") || "data:application/pdf;base64,JVBERi0xLjQKJSDl4uXmA%2B..."} 
-                        download={sub.documentName || "Incorporation_Certificate.pdf"}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      </button>
+                      <button 
+                        onClick={() => handleDownloadDocument(sub)}
                         className="flex-1 bg-slate-800 hover:bg-slate-900 text-white border border-slate-700 font-bold text-xs py-1.5 px-3 rounded-lg text-center transition-colors flex items-center justify-center gap-1 shadow-sm"
                       >
                         <Download className="w-3.5 h-3.5" /> Download
-                      </a>
+                      </button>
                     </div>
                   </div>
                 </div>
