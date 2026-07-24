@@ -466,30 +466,62 @@ export default function Register() {
                     </div>
                     <div>
                       <div className="text-sm font-bold text-slate-900">Mobile Verification</div>
-                      <div className="text-xs text-slate-500">{phone || "your number"}</div>
+                      <div className="text-xs text-slate-500">
+                        {phoneVerified ? phone : "Enter your mobile number to receive OTP"}
+                      </div>
                     </div>
                   </div>
-                  {phoneVerified ? (
+                  {phoneVerified && (
                     <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
                       <Check className="w-3.5 h-3.5" /> Verified
                     </span>
-                  ) : (
-                    <button onClick={handleSendOtp} disabled={otpLoading || smsSent}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${smsSent ? "bg-slate-100 text-slate-400" : "bg-slate-200 hover:bg-slate-300 text-slate-800"}`}>
-                      {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : smsSent ? "OTP Sent ✓" : "Send OTP"}
-                    </button>
                   )}
                 </div>
 
+                {/* Mobile Phone Number Input (if not verified yet) */}
+                {!phoneVerified && (
+                  <div className="space-y-2 pt-1">
+                    <label className="block text-xs font-bold text-slate-700">Mobile Number *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        placeholder="e.g. +91 9876543210"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="flex-1 bg-white border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none focus:border-emerald-600 font-medium text-slate-900 shadow-sm"
+                      />
+                      <button
+                        onClick={handleSendOtp}
+                        disabled={otpLoading || !phone.trim()}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-10 text-xs rounded-lg transition-colors shrink-0 flex items-center justify-center gap-1 shadow-sm"
+                      >
+                        {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : smsSent ? "Resend OTP" : "Send OTP"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* OTP Code Verification Box */}
                 {smsSent && !phoneVerified && (
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Enter OTP code" value={otpCode} onChange={e => setOtpCode(e.target.value)}
-                      maxLength={6}
-                      className="flex-1 bg-white border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none focus:border-emerald-600" />
-                    <button onClick={handleVerifyOtp} disabled={otpLoading}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-10 text-xs rounded-lg transition-colors">
-                      {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify"}
-                    </button>
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                    <label className="block text-xs font-bold text-emerald-900">Enter OTP Code</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter OTP (e.g. 123456)"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        maxLength={6}
+                        className="flex-1 bg-white border border-slate-300 h-10 px-3 text-sm rounded-lg outline-none focus:border-emerald-600 font-mono tracking-widest font-bold"
+                      />
+                      <button
+                        onClick={handleVerifyOtp}
+                        disabled={otpLoading}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-10 text-xs rounded-lg transition-colors shadow-sm"
+                      >
+                        {otpLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify OTP"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
