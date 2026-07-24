@@ -16,6 +16,7 @@ export default function Sidebar() {
     { name: "Live Board", path: "/live-board", icon: <FileText className="w-5 h-5" /> },
     { name: "Trade Tools", path: "/trade-tools", icon: <Package className="w-5 h-5" /> },
     { name: "KYB Verification & Status", path: "/kyb", icon: <Shield className="w-5 h-5" /> },
+    { name: "Admin KYB Approvals", path: "/admin/kyb", icon: <Shield className="w-5 h-5 text-emerald-400" /> },
   ];
 
   const handleSignOut = async () => {
