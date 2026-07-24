@@ -468,14 +468,37 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
         manager.disconnect(websocket, room_id=room_id)
 
 @app.post("/api/users/kyb")
-async def kyb(token_data: dict = Depends(verify_token)):
+async def kyb(data: dict = Body(default={}), token_data: dict = Depends(verify_token)):
     db = get_db()
-    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
+    uid = token_data.get("uid")
+    doc_name = data.get("file_name", "Certificate_of_Incorporation.pdf") if isinstance(data, dict) else "Certificate_of_Incorporation.pdf"
+    doc_url = data.get("file_url") if isinstance(data, dict) else None
+    now_str = datetime.utcnow().isoformat()
+    
+    res = db.table("users").select("*").eq("firebase_uid", uid).execute()
     if res.data:
-        company_id = res.data[0].get("companyId")
+        u = res.data[0]
+        company_id = u.get("companyId")
+        try:
+            db.table("users").update({
+                "kybStatus": "SUBMITTED",
+                "documentName": doc_name,
+                "documentUrl": doc_url,
+                "submittedAt": now_str
+            }).eq("firebase_uid", uid).execute()
+        except Exception as e:
+            print("Notice updating user kyb:", e)
+            
         if company_id:
-            db.table("companies").update({"verificationStatus": "VERIFIED"}).eq("id", company_id).execute()
-        db.table("users").update({"kybStatus": "VERIFIED"}).eq("firebase_uid", token_data.get("uid")).execute()
+            try:
+                db.table("companies").update({
+                    "verificationStatus": "SUBMITTED",
+                    "documentName": doc_name,
+                    "documentUrl": doc_url,
+                    "submittedAt": now_str
+                }).eq("id", company_id).execute()
+            except Exception as e:
+                print("Notice updating company kyb:", e)
     return {"status": "success"}
 
 @app.post("/api/negotiations/rooms/{room_id}/accept", response_model=Order)
@@ -532,14 +555,30 @@ async def get_admin_kyb():
     users_res = db.table("users").select("*").execute()
     companies_res = db.table("companies").select("*").execute()
     
-    comp_map = {c["id"]: c for c in companies_res.data}
+    comp_map = {c["id"]: c for c in (companies_res.data or [])}
     
     result = []
-    for u in users_res.data:
-        comp = comp_map.get(u.get("companyId"))
+    for u in (users_res.data or []):
+        comp = comp_map.get(u.get("companyId")) or {}
+        
+        status = u.get("kybStatus") or comp.get("verificationStatus") or "SUBMITTED"
+        doc_name = comp.get("documentName") or u.get("documentName") or "Certificate_of_Incorporation.pdf"
+        doc_url = comp.get("documentUrl") or u.get("documentUrl")
+        comp_name = comp.get("companyName") or comp.get("name") or u.get("company_name") or u.get("email", "").split("@")[0]
+        
         result.append({
-            "user": u,
-            "company": comp
+            "id": u.get("id"),
+            "userId": u.get("id"),
+            "companyName": comp_name,
+            "userEmail": u.get("email", ""),
+            "userName": u.get("name") or u.get("full_name") or u.get("email", "").split("@")[0],
+            "submittedAt": comp.get("submittedAt") or u.get("submittedAt") or datetime.utcnow().isoformat(),
+            "kybStatus": status,
+            "documentName": doc_name,
+            "documentUrl": doc_url,
+            "country": comp.get("country") or u.get("country") or "India",
+            "gst": comp.get("gst"),
+            "iec": comp.get("iec")
         })
     return result
 
@@ -549,21 +588,33 @@ async def approve_admin_kyb(user_id: str):
     u_res = db.table("users").select("*").eq("id", user_id).execute()
     if u_res.data:
         u = u_res.data[0]
-        db.table("users").update({"kybStatus": "VERIFIED"}).eq("id", user_id).execute()
+        try:
+            db.table("users").update({"kybStatus": "VERIFIED"}).eq("id", user_id).execute()
+        except Exception as e:
+            print("Notice approving user kyb:", e)
         if u.get("companyId"):
-            db.table("companies").update({"verificationStatus": "VERIFIED"}).eq("id", u["companyId"]).execute()
+            try:
+                db.table("companies").update({"verificationStatus": "VERIFIED"}).eq("id", u["companyId"]).execute()
+            except Exception as e:
+                print("Notice approving company kyb:", e)
     return {"status": "success"}
 
 @app.post("/api/admin/kyb/{user_id}/reject")
-async def reject_admin_kyb(user_id: str, data: dict = Body(...)):
+async def reject_admin_kyb(user_id: str, data: dict = Body(default={})):
     db = get_db()
-    reason = data.get("reason", "")
+    reason = data.get("reason", "") if isinstance(data, dict) else ""
     u_res = db.table("users").select("*").eq("id", user_id).execute()
     if u_res.data:
         u = u_res.data[0]
-        db.table("users").update({"kybStatus": "REJECTED"}).eq("id", user_id).execute()
+        try:
+            db.table("users").update({"kybStatus": "REJECTED"}).eq("id", user_id).execute()
+        except Exception as e:
+            print("Notice rejecting user kyb:", e)
         if u.get("companyId"):
-            db.table("companies").update({"verificationStatus": "REJECTED"}).eq("id", u["companyId"]).execute()
+            try:
+                db.table("companies").update({"verificationStatus": "REJECTED"}).eq("id", u["companyId"]).execute()
+            except Exception as e:
+                print("Notice rejecting company kyb:", e)
     return {"status": "success", "reason": reason}
 
 @app.post("/api/users/kyb/upload")

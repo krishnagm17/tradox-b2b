@@ -46,14 +46,30 @@ export default function AdminKyb() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setSubmissions(data);
+        const rawData = await res.json();
+        if (Array.isArray(rawData)) {
+          const formatted = rawData.map((item, idx) => ({
+            id: item.id || item.userId || `sub-${idx}`,
+            companyName: item.companyName || item.userEmail?.split("@")[0] || "Registered Company",
+            userEmail: item.userEmail || "trader@tradox.b2b",
+            userName: item.userName || item.userEmail?.split("@")[0] || "Trader",
+            submittedAt: item.submittedAt || new Date().toISOString(),
+            kybStatus: item.kybStatus || "SUBMITTED",
+            documentName: item.documentName || "Certificate_of_Incorporation.pdf",
+            documentUrl: item.documentUrl || null,
+            country: item.country || "Global",
+            gst: item.gst || null,
+            iec: item.iec || null
+          }));
+          setSubmissions(formatted);
+        } else {
+          setSubmissions(getMockSubmissions());
+        }
       } else {
-        // Fallback: use mock data if admin endpoint doesn't exist yet
         setSubmissions(getMockSubmissions());
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching KYB submissions", err);
       setSubmissions(getMockSubmissions());
     } finally {
       setLoading(false);
