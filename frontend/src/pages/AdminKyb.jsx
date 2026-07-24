@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../config/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { supabase } from "../config/supabase";
 import { toast } from "sonner";
 import {
   Shield, CheckCircle2, XCircle, Clock, ArrowLeft,
@@ -12,846 +12,372 @@ import Sidebar from "../components/Sidebar";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
-const SUPER_OWNERS = [
-  "krishnametri223344@gmail.com",
-  "owner@tradoxb2b.com"
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function loadAdminStore() {
-  try { return JSON.parse(localStorage.getItem("kyb_admin_store") || "[]"); } catch { return []; }
-}
-function saveAdminStore(list) {
-  try { localStorage.setItem("kyb_admin_store", JSON.stringify(list)); } catch { /* noop */ }
-}
-function fmtDate(iso) {
-  try {
-    const d = new Date(iso);
-    return isNaN(d) ? "Recently" : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  } catch { return "Recently"; }
-}
-
 export default function AdminKyb() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
-  const [isSuperOwner, setIsSuperOwner] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [submissions, setSubmissions] = useState([]);
-  const [activeTab, setActiveTab] = useState("SUBMITTED");
+  const [activeTab, setActiveTab] = useState("Pending"); // Pending, Approved, Rejected
   const [searchQuery, setSearchQuery] = useState("");
-  const [actionLoading, setActionLoading] = useState({});
-  const [rejectReasons, setRejectReasons] = useState({});
-  const [previewDoc, setPreviewDoc] = useState(null);
+  
+  // Permissions state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [adminList, setAdminList] = useState([]);
   const [showPermModal, setShowPermModal] = useState(false);
-  const [authorizedEmails, setAuthorizedEmails] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("kyb_authorized_emails") || "[]"); } catch { return []; }
-  });
   const [newAdminEmail, setNewAdminEmail] = useState("");
 
-  // ─── Load submissions (Firestore-first) ────────────────────────────────────
-  const fetchSubmissions = useCallback(async (user, showRefreshing = false) => {
-    if (showRefreshing) setRefreshing(true); else setLoading(true);
+  // Modals state
+  const [previewDoc, setPreviewDoc] = useState(null); // URL of document
+  const [rejectingId, setRejectingId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const fetchData = async () => {
     try {
-      const latestDoc    = localStorage.getItem("kyb_submitted_doc");
-      const latestUrl    = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
-      const latestStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
-
-      const fsMap = new Map();
-
-      // STEP 1: Read from primary kyb_requests table
-      try {
-        const { supabase } = await import('../config/supabase');
-        const { data: reqData, error: reqErr } = await supabase
-          .from('kyb_requests')
-          .select('*');
-
-        if (!reqErr && reqData && reqData.length > 0) {
-          reqData.forEach(item => {
-            const rawStatus = (item.status || 'Submitted').trim();
-            let normStatus = 'SUBMITTED';
-            if (rawStatus.toLowerCase() === 'approved') normStatus = 'VERIFIED';
-            else if (rawStatus.toLowerCase() === 'rejected') normStatus = 'REJECTED';
-            else normStatus = 'SUBMITTED';
-
-            const uid = item.firebase_uid || item.id || item.user_email;
-            fsMap.set(uid, {
-              id: uid,
-              companyName: item.company_name || "Registered Company",
-              userEmail: item.user_email || "—",
-              userName: item.user_name || item.user_email?.split("@")[0] || "—",
-              mobile: item.mobile || "Not Provided",
-              submittedAt: item.submitted_at || item.created_at || new Date().toISOString(),
-              kybStatus: normStatus,
-              documentName: item.document_type || "Certificate.pdf",
-              documentUrl: item.document_url || null,
-              country: "India",
-              gst: item.gst_number || null,
-              iec: item.iec_number || null,
-              rejectReason: item.rejection_reason || null,
-              approvedBy: item.approved_by || null,
-              approvedAt: item.approved_at || null,
-              rejectedBy: item.rejected_by || null,
-              rejectedAt: item.rejected_at || null,
-            });
-          });
-        }
-      } catch (reqE) { console.warn("kyb_requests read notice:", reqE); }
-
-      // STEP 2: Read from fallback users table
-      try {
-        const { supabase } = await import('../config/supabase');
-        const { data: usersData, error } = await supabase.from('users').select('*');
-        if (!error && usersData) {
-          usersData.forEach(userRow => {
-            if (!userRow.kybStatus) return;
-            let status = 'PENDING';
-            let docName = 'Certificate.pdf';
-            let docUrl = null;
-            let submittedAt = userRow.createdAt || new Date().toISOString();
-            let userName = userRow.name || userRow.email?.split("@")[0] || "—";
-            let companyName = userRow.companyName || `${userName} Company`;
-            let mobile = userRow.phone || "Not Provided";
-            let rejectReason = null;
-
-            const strVal = String(userRow.kybStatus).trim();
-            if (strVal.startsWith('{')) {
-              try {
-                const meta = JSON.parse(strVal);
-                status = (meta.status || 'SUBMITTED').toUpperCase();
-                if (meta.docName) docName = meta.docName;
-                if (meta.docUrl) docUrl = meta.docUrl;
-                if (meta.submittedAt) submittedAt = meta.submittedAt;
-                if (meta.userName) userName = meta.userName;
-                if (meta.companyName) companyName = meta.companyName;
-                if (meta.mobile) mobile = meta.mobile;
-                if (meta.rejectReason) rejectReason = meta.rejectReason;
-              } catch { status = strVal.toUpperCase(); }
-            } else { status = strVal.toUpperCase(); }
-
-            if (status === 'PENDING') return;
-
-            const uid = userRow.firebase_uid || userRow.id || userRow.email;
-            if (!fsMap.has(uid)) {
-              fsMap.set(uid, {
-                id: uid, companyName, userEmail: userRow.email || "—", userName, mobile,
-                submittedAt, kybStatus: status, documentName: docName, documentUrl: docUrl,
-                country: "India", gst: null, iec: null, rejectReason
-              });
-            }
-          });
-        }
-      } catch (fsErr) { console.warn("Supabase read notice (non-fatal):", fsErr); }
-
-      // STEP 2: Enrich Firestore data with local document URLs (for same-browser preview)
-      if (user?.uid && fsMap.has(user.uid) && latestUrl) {
-        const fsEntry = fsMap.get(user.uid);
-        if (!fsEntry.documentUrl) {
-          fsMap.set(user.uid, { ...fsEntry, documentUrl: latestUrl, documentName: latestDoc || fsEntry.documentName });
-        }
+      const user = auth.currentUser;
+      if (!user) return;
+      const token = await user.getIdToken();
+      
+      const [kybRes, permRes] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/kyb`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/admin/list`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      
+      if (kybRes.ok) {
+        const data = await kybRes.json();
+        setSubmissions(data.data || []);
       }
-
-      // STEP 3: Add any local store entries not yet in Firestore
-      const localStore = loadAdminStore();
-      for (const local of localStore) {
-        if (!fsMap.has(local.id)) {
-          fsMap.set(local.id, {
-            ...local,
-            kybStatus: latestStatus || local.kybStatus || "SUBMITTED",
-          });
-        }
+      
+      if (permRes.ok) {
+        const data = await permRes.json();
+        setAdminList(data.data || []);
+        setIsAdmin(true);
+        setIsOwner(data.role === "OWNER");
+      } else {
+        setIsAdmin(false);
       }
-
-      // STEP 4: If current user submitted locally but not in Firestore yet, add them
-      if (latestDoc && user?.uid && !fsMap.has(user.uid)) {
-        const uEmail = user?.email || "krishnametri223344@gmail.com";
-        const uName  = user?.displayName || uEmail.split("@")[0];
-        fsMap.set(user.uid, {
-          id: user.uid,
-          companyName: `${uName} Company`,
-          userEmail: uEmail, userName: uName,
-          mobile: user?.phoneNumber || "+917777777777",
-          submittedAt: new Date().toISOString(),
-          kybStatus: latestStatus,
-          documentName: latestDoc,
-          documentUrl: latestUrl || null,
-          country: "India", gst: null, iec: null,
-        });
-      }
-
-      const merged = Array.from(fsMap.values());
-      // Sort: pending first, then by date
-      merged.sort((a, b) => {
-        const order = { SUBMITTED: 0, PENDING: 0, VERIFIED: 1, REJECTED: 2 };
-        const oa = order[a.kybStatus] ?? 1;
-        const ob = order[b.kybStatus] ?? 1;
-        if (oa !== ob) return oa - ob;
-        return new Date(b.submittedAt) - new Date(a.submittedAt);
-      });
-
-      setSubmissions(merged.length > 0 ? merged : loadAdminStore());
     } catch (err) {
-      console.error("KYB fetch error:", err);
-      setSubmissions(loadAdminStore());
+      console.error("Admin fetch error:", err);
+      setIsAdmin(false);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    let subChannel = null;
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      const activeUser = user || auth.currentUser;
-      const email = activeUser?.email?.trim().toLowerCase() || "";
-      setIsSuperOwner(
-        !email ||
-        SUPER_OWNERS.some(o => o.toLowerCase() === email) ||
-        email.includes("krishnametri") ||
-        email.includes("owner")
-      );
-      setCurrentUser(activeUser);
-      fetchSubmissions(activeUser);
-
-      // ── Supabase Realtime listener ──────────────────────────────────────────
-      try {
-        const { supabase } = await import('../config/supabase');
-        subChannel = supabase
-          .channel('kyb_realtime')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'kyb_requests' }, () => {
-            console.log("⚡ Realtime update from kyb_requests");
-            fetchSubmissions(activeUser);
-          })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-            console.log("⚡ Realtime update from users");
-            fetchSubmissions(activeUser);
-          })
-          .subscribe();
-      } catch (rtErr) { console.warn("Realtime channel notice:", rtErr); }
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setCurrentUser(user);
+        fetchData();
+      } else {
+        navigate("/auth");
+      }
     });
+    return () => unsubscribe();
+  }, [navigate]);
 
-    return () => {
-      unsub();
-      if (subChannel) {
-        import('../config/supabase').then(({ supabase }) => supabase.removeChannel(subChannel)).catch(() => {});
-      }
-    };
-  }, [fetchSubmissions]);
-
-  // ─── Approve ──────────────────────────────────────────────────────────────
-  const handleApprove = async (userId, companyName) => {
-    setActionLoading(prev => ({ ...prev, [userId]: "approve" }));
-    try {
-      // Optimistic update
-      setSubmissions(prev => prev.map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s));
-      saveAdminStore(loadAdminStore().map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s));
-      if (userId === currentUser?.uid || userId === "local-user-1") {
-        localStorage.setItem("kyb_status", "VERIFIED");
-      }
-      // Write to Supabase kyb_requests table
-      try {
-        const { supabase } = await import('../config/supabase');
-        await supabase
-          .from('kyb_requests')
-          .update({
-            status: 'Approved',
-            approved_by: currentUser?.email || 'Admin',
-            approved_at: new Date().toISOString()
-          })
-          .eq('firebase_uid', userId);
-
-        // Fallback update on users table
-        const { data: rows } = await supabase.from('users').select('*').or(`firebase_uid.eq.${userId},id.eq.${userId}`);
-        if (rows && rows.length > 0) {
-          const row = rows[0];
-          let updatedPayload = "VERIFIED";
-          if (row.kybStatus && String(row.kybStatus).trim().startsWith('{')) {
-            try {
-              const meta = JSON.parse(row.kybStatus);
-              meta.status = "VERIFIED";
-              meta.approvedBy = currentUser?.email || 'Admin';
-              meta.approvedAt = new Date().toISOString();
-              updatedPayload = JSON.stringify(meta);
-            } catch { updatedPayload = "VERIFIED"; }
-          }
-          await supabase.from('users').update({ kybStatus: updatedPayload }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
-        }
-      } catch (fsErr) { console.warn("Supabase approve notice:", fsErr); }
-      // Backend API
-      const token = await auth.currentUser?.getIdToken().catch(() => null);
-      if (token) {
-        await fetch(`${API_BASE}/api/admin/kyb/${userId}/approve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-        }).catch(() => {});
-      }
-      toast.success(`✓ ${companyName} approved & verified!`);
-      setActiveTab("VERIFIED");
-    } catch (err) {
-      toast.success(`✓ ${companyName} approved!`);
-      setActiveTab("VERIFIED");
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: null }));
-    }
-  };
-
-  // ─── Reject ───────────────────────────────────────────────────────────────
-  const handleReject = async (userId, companyName) => {
-    const reason = rejectReasons[userId] || "Documents could not be verified.";
-    setActionLoading(prev => ({ ...prev, [userId]: "reject" }));
-    try {
-      // Optimistic update
-      setSubmissions(prev => prev.map(s => s.id === userId ? { ...s, kybStatus: "REJECTED", rejectReason: reason } : s));
-      saveAdminStore(loadAdminStore().map(s => s.id === userId ? { ...s, kybStatus: "REJECTED" } : s));
-      if (userId === currentUser?.uid || userId === "local-user-1") {
-        localStorage.setItem("kyb_status", "REJECTED");
-        localStorage.setItem("kyb_reject_reason", reason);
-      }
-      // Write to Supabase kyb_requests table
-      try {
-        const { supabase } = await import('../config/supabase');
-        await supabase
-          .from('kyb_requests')
-          .update({
-            status: 'Rejected',
-            rejected_by: currentUser?.email || 'Admin',
-            rejected_at: new Date().toISOString(),
-            rejection_reason: reason
-          })
-          .eq('firebase_uid', userId);
-
-        // Fallback update on users table
-        const { data: rows } = await supabase.from('users').select('*').or(`firebase_uid.eq.${userId},id.eq.${userId}`);
-        if (rows && rows.length > 0) {
-          const row = rows[0];
-          let updatedPayload = "REJECTED";
-          if (row.kybStatus && String(row.kybStatus).trim().startsWith('{')) {
-            try {
-              const meta = JSON.parse(row.kybStatus);
-              meta.status = "REJECTED";
-              meta.rejectReason = reason;
-              meta.rejectedBy = currentUser?.email || 'Admin';
-              meta.rejectedAt = new Date().toISOString();
-              updatedPayload = JSON.stringify(meta);
-            } catch { updatedPayload = "REJECTED"; }
-          }
-          await supabase.from('users').update({ kybStatus: updatedPayload }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
-        }
-      } catch (fsErr) { console.warn("Supabase reject notice:", fsErr); }
-      // Backend API
-      const token = await auth.currentUser?.getIdToken().catch(() => null);
-      if (token) {
-        await fetch(`${API_BASE}/api/admin/kyb/${userId}/reject`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ reason })
-        }).catch(() => {});
-      }
-      toast.error(`✗ ${companyName} rejected.`);
-      setActiveTab("REJECTED");
-    } catch (err) {
-      toast.error(`✗ ${companyName} rejected.`);
-      setActiveTab("REJECTED");
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: null }));
-    }
-  };
-
-  // ─── Document viewer ──────────────────────────────────────────────────────
-  const handleViewDocument = (sub) => {
-    const rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
-    if (!rawUrl || rawUrl.length < 20 || rawUrl === "null") {
-      setPreviewDoc({ name: sub.documentName || "Certificate.pdf", url: null, rawUrl: null, company: sub.companyName, applicant: sub.userName });
-      return;
-    }
-    let finalUrl = rawUrl;
-    if (rawUrl.startsWith("data:")) {
-      try {
-        const arr = rawUrl.split(",");
-        const mime = arr[0].match(/:(.*?);/)?.[1] || "application/pdf";
-        const bstr = atob(arr[1].replace(/\s/g, ""));
-        const u8 = new Uint8Array(bstr.length);
-        for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
-        finalUrl = URL.createObjectURL(new Blob([u8], { type: mime }));
-      } catch { finalUrl = null; }
-    }
-    setPreviewDoc({ name: sub.documentName || "Certificate.pdf", url: finalUrl, rawUrl, company: sub.companyName, applicant: sub.userName });
-  };
-
-  const handleDownloadDocument = (sub) => {
-    const rawUrl = sub.url || sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
-    const filename = sub.name || sub.documentName || "Certificate.pdf";
-    if (!rawUrl || rawUrl.length < 20 || rawUrl === "null") {
-      toast.error("Document not available — uploaded from a different browser/device.");
-      return;
-    }
-    try {
-      if (rawUrl.startsWith("data:")) {
-        const arr = rawUrl.split(",");
-        const mime = arr[0].match(/:(.*?);/)?.[1] || "application/pdf";
-        const bstr = atob(arr[1]);
-        const u8 = new Uint8Array(bstr.length);
-        for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
-        const blobUrl = URL.createObjectURL(new Blob([u8], { type: mime }));
-        const a = document.createElement("a");
-        a.href = blobUrl; a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        return;
-      }
-    } catch { /* fall through */ }
-    const a = document.createElement("a");
-    a.href = rawUrl; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  };
-
-  // ─── Permission management ────────────────────────────────────────────────
-  const fetchAdminPermissions = useCallback(async () => {
-    try {
-      const { supabase } = await import('../config/supabase');
-      const { data, error } = await supabase.from('admin_permissions').select('*');
-      if (!error && data && data.length > 0) {
-        const emails = data.map(d => d.email?.toLowerCase()).filter(Boolean);
-        setAuthorizedEmails(prev => Array.from(new Set([...prev, ...emails])));
-      }
-    } catch (e) { console.warn("admin_permissions read notice:", e); }
-  }, []);
-
+  // Realtime subscription for list
   useEffect(() => {
-    fetchAdminPermissions();
-  }, [fetchAdminPermissions]);
+    if (!isAdmin) return;
+    const channel = supabase.channel('admin-kyb-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kyb_requests' }, () => {
+        // Just refetch data to keep it simple and accurate
+        fetchData();
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [isAdmin]);
 
-  const handleGrantPermission = async (e) => {
-    e.preventDefault();
-    if (!isSuperOwner) { toast.error("Only the Platform Owner can grant permissions."); return; }
-    const clean = newAdminEmail.trim().toLowerCase();
-    if (!clean.includes("@")) { toast.error("Enter a valid email."); return; }
-    if (authorizedEmails.includes(clean)) { toast.error("Already authorized."); return; }
-    
-    // Save to Supabase admin_permissions table
+  const handleApprove = async (id) => {
+    const toastId = toast.loading("Approving KYB...");
     try {
-      const { supabase } = await import('../config/supabase');
-      await supabase.from('admin_permissions').upsert({
-        email: clean,
-        name: clean.split("@")[0],
-        role: 'Admin',
-        added_by: currentUser?.email || 'Platform Owner',
-        created_at: new Date().toISOString()
-      }, { onConflict: 'email' });
-    } catch (e) { console.warn("admin_permissions write notice:", e); }
-
-    const updated = [...authorizedEmails, clean];
-    setAuthorizedEmails(updated);
-    localStorage.setItem("kyb_authorized_emails", JSON.stringify(updated));
-    setNewAdminEmail("");
-    toast.success(`✓ Granted access to ${clean}`);
-  };
-  const handleRevokePermission = (email) => {
-    if (!isSuperOwner) { toast.error("Only the Platform Owner can revoke permissions."); return; }
-    const updated = authorizedEmails.filter(e => e !== email);
-    setAuthorizedEmails(updated);
-    localStorage.setItem("kyb_authorized_emails", JSON.stringify(updated));
-    toast.success(`Removed access for ${email}`);
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/api/admin/kyb/${id}/approve`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success("KYB Approved successfully!", { id: toastId });
+        fetchData();
+      } else {
+        throw new Error("Failed to approve");
+      }
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+    }
   };
 
-  // ─── Derived data ──────────────────────────────────────────────────────────
-  const q = searchQuery.toLowerCase();
-  const filtered = submissions.filter(s =>
-    !q ||
-    s.companyName?.toLowerCase().includes(q) ||
-    s.userEmail?.toLowerCase().includes(q) ||
-    s.userName?.toLowerCase().includes(q)
+  const handleReject = async () => {
+    if (!rejectingId || !rejectReason) return;
+    const toastId = toast.loading("Rejecting KYB...");
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/api/admin/kyb/${rejectingId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: rejectReason })
+      });
+      if (res.ok) {
+        toast.success("KYB Rejected successfully!", { id: toastId });
+        setRejectingId(null);
+        setRejectReason("");
+        fetchData();
+      } else {
+        throw new Error("Failed to reject");
+      }
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+    }
+  };
+
+  const handleViewDoc = async (id) => {
+    const toastId = toast.loading("Generating secure document link...");
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/api/admin/kyb/${id}/document`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewDoc(data.url);
+        toast.dismiss(toastId);
+      } else {
+        throw new Error("Document not found");
+      }
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+    }
+  };
+
+  const handleGrantAdmin = async () => {
+    if (!newAdminEmail) return;
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/api/admin/grant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: newAdminEmail })
+      });
+      if (res.ok) {
+        toast.success("Admin granted successfully!");
+        setNewAdminEmail("");
+        fetchData();
+      } else {
+        const err = await res.json();
+        toast.error(err.detail || "Failed to grant admin");
+      }
+    } catch (err) {
+      toast.error("Error granting admin");
+    }
+  };
+
+  const handleRevokeAdmin = async (id) => {
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/api/admin/revoke/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success("Admin revoked successfully!");
+        fetchData();
+      } else {
+        throw new Error("Failed to revoke");
+      }
+    } catch (err) {
+      toast.error("Error revoking admin");
+    }
+  };
+
+  if (loading) return <div className="flex-1 flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin text-[#10B981]" /></div>;
+  if (!isAdmin) return <div className="flex-1 flex items-center justify-center min-h-screen"><p className="text-xl text-red-600 font-bold">Unauthorized Access</p></div>;
+
+  const filtered = submissions.filter(s => s.status === activeTab && 
+    (s.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+     s.user_email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
-  const pendingList  = filtered.filter(s => s.kybStatus === "SUBMITTED" || s.kybStatus === "PENDING");
-  const approvedList = filtered.filter(s => s.kybStatus === "VERIFIED");
-  const rejectedList = filtered.filter(s => s.kybStatus === "REJECTED");
-  const displayList  = activeTab === "SUBMITTED" ? pendingList : activeTab === "VERIFIED" ? approvedList : rejectedList;
 
-  // ─── Loading spinner ──────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-          <p className="text-sm text-slate-600">Loading KYB submissions...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Submission Card ──────────────────────────────────────────────────────
-  const SubmissionCard = ({ sub }) => {
-    const isApproved = sub.kybStatus === "VERIFIED";
-    const isRejected = sub.kybStatus === "REJECTED";
-    const busy       = !!actionLoading[sub.id];
-
-    return (
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
-        {/* Card header */}
-        <div className="p-5 flex flex-col sm:flex-row sm:items-start gap-4">
-          <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-            <Building2 className="w-6 h-6 text-slate-500" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <h3 className="text-base font-bold text-slate-900">{sub.companyName}</h3>
-              <span className={`text-[0.65rem] font-bold uppercase tracking-wider border px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                isApproved ? "bg-emerald-100 text-emerald-800 border-emerald-300" :
-                isRejected ? "bg-rose-100 text-rose-800 border-rose-300" :
-                "bg-amber-100 text-amber-800 border-amber-300"
-              }`}>
-                {isApproved ? <CheckCircle2 className="w-3 h-3" /> : isRejected ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                {sub.kybStatus}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 mb-2">
-              <span className="flex items-center gap-1.5 font-semibold text-slate-800">
-                <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                {sub.userName}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                {sub.userEmail}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                {sub.mobile}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                {fmtDate(sub.submittedAt)}
-              </span>
-              {sub.gst && (
-                <span className="flex items-center gap-1.5 text-slate-700 font-mono text-[0.7rem]">
-                  <strong>GST:</strong> {sub.gst}
-                </span>
-              )}
-              {sub.iec && (
-                <span className="flex items-center gap-1.5 text-slate-700 font-mono text-[0.7rem]">
-                  <strong>IEC:</strong> {sub.iec}
-                </span>
-              )}
-            </div>
-            {sub.approvedBy && isApproved && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 mt-1">
-                <strong>Approved by:</strong> {sub.approvedBy} {sub.approvedAt ? `on ${fmtDate(sub.approvedAt)}` : ''}
-              </p>
-            )}
-            {sub.rejectedBy && isRejected && (
-              <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 mt-1">
-                <strong>Rejected by:</strong> {sub.rejectedBy} {sub.rejectedAt ? `on ${fmtDate(sub.rejectedAt)}` : ''}
-              </p>
-            )}
-            {sub.rejectReason && (
-              <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 mt-1">
-                <strong>Reason:</strong> {sub.rejectReason}
-              </p>
-            )}
-          </div>
-
-          {/* Document */}
-          <div className="shrink-0 flex flex-col gap-1.5 min-w-[190px]">
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-              <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div className="overflow-hidden">
-                <p className="text-xs font-bold text-slate-900 truncate max-w-[130px]" title={sub.documentName}>{sub.documentName || "Certificate.pdf"}</p>
-                <p className="text-[0.6rem] text-slate-500 font-mono">Incorporation Certificate</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => handleViewDocument(sub)}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors shadow-sm">
-                <Eye className="w-3.5 h-3.5" /> View
-              </button>
-              <button onClick={() => handleDownloadDocument(sub)}
-                className="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors shadow-sm">
-                <Download className="w-3.5 h-3.5" /> Download
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Action area */}
-        <div className="border-t border-slate-100 px-5 py-4 bg-slate-50">
-          <div className="mb-3">
-            <label className="block text-[0.65rem] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Rejection Reason (fill before rejecting)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Document is unclear / expired / name mismatch..."
-              value={rejectReasons[sub.id] || ""}
-              onChange={e => setRejectReasons(prev => ({ ...prev, [sub.id]: e.target.value }))}
-              className="w-full bg-white border border-slate-300 h-9 px-3 text-xs rounded-lg outline-none focus:border-slate-400 transition-all"
-            />
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => handleApprove(sub.id, sub.companyName)}
-              disabled={busy}
-              className={`flex-1 h-10 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${
-                isApproved
-                  ? "bg-emerald-700 text-white ring-2 ring-emerald-500 shadow-inner"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
-              }`}
-            >
-              {actionLoading[sub.id] === "approve" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              {isApproved ? "✓ Approved (Re-Approve)" : "✓ Approve & Verify"}
-            </button>
-            <button
-              onClick={() => handleReject(sub.id, sub.companyName)}
-              disabled={busy}
-              className={`flex-1 h-10 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${
-                isRejected
-                  ? "bg-rose-700 text-white ring-2 ring-rose-500 shadow-inner"
-                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-md"
-              }`}
-            >
-              {actionLoading[sub.id] === "reject" ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-              {isRejected ? "✗ Rejected (Re-Reject)" : "✗ Reject"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ─── Main render ──────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 font-sans selection:bg-[#10B981]/20">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-
-        {/* Top bar */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate("/dashboard")} className="text-slate-400 hover:text-white transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-emerald-400" />
-              <div>
-                <div className="text-sm font-bold">Platform Owner — KYB Approval Panel</div>
-                <div className="text-[0.65rem] text-emerald-400 font-mono">Exclusive Owner Review Panel · Only Owner Can Approve/Reject</div>
-              </div>
+      <div className="flex-1 overflow-auto">
+        <div className="p-8 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-[#0B1220] flex items-center gap-3">
+                <Shield className="w-8 h-8 text-[#10B981]" />
+                KYB Verifications
+              </h1>
+              <p className="text-slate-500 mt-1">Review and manage business verifications for TradoxB2B.</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchSubmissions(currentUser, true)}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
-              title="Refresh submissions"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </button>
-            {isSuperOwner && (
-              <button onClick={() => setShowPermModal(true)}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-md">
-                <Key className="w-3.5 h-3.5" /> Manage Permissions
+            {isOwner && (
+              <button onClick={() => setShowPermModal(true)} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition">
+                <Key className="w-4 h-4" /> Manage Permissions
               </button>
             )}
           </div>
-        </div>
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full">
-
-          {/* Stats tabs */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            {[
-              { key: "SUBMITTED", label: "Pending Review", count: pendingList.length, color: "amber", icon: Clock },
-              { key: "VERIFIED",  label: "Approved",       count: approvedList.length, color: "emerald", icon: CheckCircle2 },
-              { key: "REJECTED",  label: "Rejected",       count: rejectedList.length, color: "rose", icon: XCircle },
-            ].map(({ key, label, count, color, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`rounded-xl p-4 text-center border-2 transition-all hover:shadow-md ${
-                  activeTab === key
-                    ? `bg-${color}-50 border-${color}-400 shadow-sm`
-                    : `bg-white border-transparent hover:border-${color}-200`
-                }`}
-              >
-                <div className={`text-3xl font-bold mb-1 text-${color}-800`}>{count}</div>
-                <div className={`text-xs font-semibold text-${color}-700 flex items-center justify-center gap-1`}>
-                  <Icon className="w-3.5 h-3.5" /> {label}
-                </div>
-                {activeTab === key && (
-                  <div className={`text-[0.6rem] font-bold text-${color}-500 mt-1 uppercase tracking-wider`}>● Viewing</div>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Search */}
-          <div className="relative mb-5">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by company name, email, or person..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-300 focus:border-emerald-500 h-11 pl-10 pr-4 text-sm rounded-xl outline-none transition-all"
-            />
-          </div>
-
-          {/* Section label */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-              {activeTab === "SUBMITTED" ? "⏳ Pending Review" : activeTab === "VERIFIED" ? "✅ Approved" : "❌ Rejected"}
-              <span className="ml-2 text-slate-400 font-normal">({displayList.length})</span>
-            </h2>
-          </div>
-
-          {/* Cards */}
-          <div className="space-y-4">
-            {displayList.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-14 text-center">
-                {activeTab === "SUBMITTED" ? (
-                  <>
-                    <CheckCircle2 className="w-12 h-12 text-emerald-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-semibold">No pending submissions</p>
-                    <p className="text-sm text-slate-400 mt-1">All submissions have been reviewed, or no user has submitted yet.</p>
-                  </>
-                ) : activeTab === "VERIFIED" ? (
-                  <>
-                    <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-semibold">No approved submissions yet</p>
-                    <p className="text-sm text-slate-400 mt-1">Approve a pending submission to see it here.</p>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-semibold">No rejected submissions</p>
-                  </>
-                )}
-              </div>
-            ) : (
-              displayList.map(sub => <SubmissionCard key={sub.id} sub={sub} />)
-            )}
-          </div>
-
-          <p className="text-center text-xs text-slate-400 mt-8">
-            KYB Admin Panel · TradoxB2B Compliance · All actions are logged.
-          </p>
-        </div>
-
-        {/* ── PERMISSIONS MODAL ─────────────────────────────────────────────── */}
-        {showPermModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700">
-                    <Key className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Manage KYB Approval Permissions</h3>
-                    <p className="text-xs text-slate-500">Platform Owner Controls</p>
-                  </div>
-                </div>
-                <button onClick={() => setShowPermModal(false)} className="text-slate-400 hover:text-slate-700 text-lg font-bold px-2">✕</button>
-              </div>
-              <form onSubmit={handleGrantPermission} className="mb-6">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Authorize Staff Email for KYB Approvals
-                </label>
-                <div className="flex gap-2">
-                  <input type="email" placeholder="Enter staff email"
-                    value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 focus:border-emerald-500 h-10 px-3 text-xs rounded-xl outline-none"
-                  />
-                  <button type="submit"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 h-10 rounded-xl text-xs flex items-center gap-1.5 transition-colors shrink-0">
-                    <UserPlus className="w-4 h-4" /> Grant Access
-                  </button>
-                </div>
-              </form>
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Authorized Admin List ({authorizedEmails.length})
-                </h4>
-                {authorizedEmails.length === 0 ? (
-                  <div className="bg-slate-50 rounded-xl p-4 text-center text-xs text-slate-500">
-                    Only you (Platform Owner) currently have KYB Approval access.
-                  </div>
-                ) : (
-                  <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                    {authorizedEmails.map(email => (
-                      <div key={email} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-slate-400" />
-                          <span className="text-xs font-bold text-slate-800">{email}</span>
-                        </div>
-                        <button onClick={() => handleRevokePermission(email)}
-                          className="text-rose-600 hover:text-rose-800 text-xs font-bold flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" /> Revoke
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
-                <button onClick={() => setShowPermModal(false)}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-colors">
-                  Done
+          {/* Stats & Search */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8 flex items-center justify-between">
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+              {["Pending", "Approved", "Rejected"].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  {tab}
                 </button>
-              </div>
+              ))}
+            </div>
+            <div className="relative w-72">
+              <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search company or email..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10B981]"
+              />
             </div>
           </div>
-        )}
 
-        {/* ── DOCUMENT PREVIEW MODAL ────────────────────────────────────────── */}
-        {previewDoc && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col overflow-hidden font-sans">
-              <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-emerald-500/20 border border-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-400">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">{previewDoc.name}</h3>
-                    <p className="text-xs text-slate-400">KYB Certificate for <span className="text-emerald-400 font-semibold">{previewDoc.company}</span> ({previewDoc.applicant})</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => handleDownloadDocument(previewDoc)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm">
-                    <Download className="w-3.5 h-3.5" /> Download Document
-                  </button>
-                  <button onClick={() => setPreviewDoc(null)}
-                    className="text-slate-400 hover:text-white font-bold text-lg px-2 rounded-lg transition-colors">✕</button>
-                </div>
-              </div>
-              <div className="flex-1 bg-slate-100 p-3 overflow-hidden flex items-center justify-center">
-                {previewDoc.url ? (
-                  <iframe src={previewDoc.url} title={previewDoc.name}
-                    className="w-full h-full rounded-2xl border border-slate-300 bg-white shadow-inner" />
-                ) : (
-                  <div className="flex flex-col items-center gap-4 text-center p-8">
-                    <div className="w-20 h-20 bg-amber-50 border-2 border-amber-200 rounded-full flex items-center justify-center">
-                      <FileText className="w-9 h-9 text-amber-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-800 mb-2">Document Preview Not Available</h3>
-                      <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
-                        <strong>{previewDoc.name}</strong> was uploaded from a different browser or device.
-                      </p>
-                      <p className="text-xs text-amber-600 mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
-                        Ask the applicant to re-upload, or check backend file storage.
-                      </p>
-                    </div>
-                  </div>
+          {/* Table */}
+          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="p-4">Company Details</th>
+                  <th className="p-4">Contact Person</th>
+                  <th className="p-4">Submitted At</th>
+                  <th className="p-4">Document</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map(sub => (
+                  <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#10B981]/10 flex items-center justify-center shrink-0">
+                          <Building2 className="w-5 h-5 text-[#10B981]" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-[#0B1220]">{sub.company_name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">{sub.gst_number || "NO GST"}</span>
+                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">{sub.iec_number || "NO IEC"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <p className="font-medium text-slate-900">{sub.user_name}</p>
+                      <p className="text-sm text-slate-500">{sub.user_email}</p>
+                    </td>
+                    <td className="p-4">
+                      <p className="font-medium text-slate-700">{new Date(sub.submitted_at).toLocaleDateString()}</p>
+                    </td>
+                    <td className="p-4">
+                      <button onClick={() => handleViewDoc(sub.id)} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-bold">
+                        <FileText className="w-4 h-4" /> View Doc
+                      </button>
+                    </td>
+                    <td className="p-4 text-right space-x-2">
+                      {activeTab === "Pending" && (
+                        <>
+                          <button onClick={() => handleApprove(sub.id)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 font-bold text-sm transition">Approve</button>
+                          <button onClick={() => setRejectingId(sub.id)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 font-bold text-sm transition">Reject</button>
+                        </>
+                      )}
+                      {activeTab === "Approved" && <span className="text-emerald-600 font-bold flex justify-end gap-1"><CheckCircle2 className="w-5 h-5"/> Approved</span>}
+                      {activeTab === "Rejected" && <span className="text-red-600 font-bold flex justify-end gap-1"><XCircle className="w-5 h-5"/> Rejected</span>}
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="p-8 text-center text-slate-500">
+                      No {activeTab.toLowerCase()} submissions found.
+                    </td>
+                  </tr>
                 )}
-              </div>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Permissions Modal */}
+      {showPermModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Key className="w-5 h-5 text-indigo-600"/> Admin Permissions</h2>
+            <div className="flex gap-2 mb-6">
+              <input 
+                type="email" 
+                placeholder="New admin email..." 
+                value={newAdminEmail}
+                onChange={e => setNewAdminEmail(e.target.value)}
+                className="flex-1 px-4 py-2 border rounded-xl"
+              />
+              <button onClick={handleGrantAdmin} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700">Add</button>
+            </div>
+            <div className="space-y-2">
+              {adminList.map(a => (
+                <div key={a.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                  <div>
+                    <p className="font-bold">{a.email}</p>
+                    <p className="text-xs text-slate-500">Role: {a.role}</p>
+                  </div>
+                  {a.role !== "OWNER" && (
+                    <button onClick={() => handleRevokeAdmin(a.id)} className="text-red-600 hover:bg-red-100 p-2 rounded-lg">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowPermModal(false)} className="mt-6 w-full py-2 bg-slate-100 text-slate-800 rounded-xl font-bold hover:bg-slate-200">Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <h2 className="text-xl font-bold mb-4 text-red-600">Reject Verification</h2>
+            <textarea 
+              placeholder="Provide a reason for rejection..." 
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              className="w-full h-32 px-4 py-3 border rounded-xl mb-4"
+            ></textarea>
+            <div className="flex gap-3">
+              <button onClick={() => setRejectingId(null)} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-700">Cancel</button>
+              <button onClick={handleReject} className="flex-1 py-3 bg-red-600 font-bold rounded-xl text-white">Confirm Reject</button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
+      {/* Document Viewer Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/90 backdrop-blur-sm">
+          <div className="flex justify-end p-4">
+            <button onClick={() => setPreviewDoc(null)} className="text-white hover:bg-white/20 p-2 rounded-full"><XCircle className="w-8 h-8" /></button>
+          </div>
+          <div className="flex-1 p-4 flex justify-center">
+            {previewDoc.toLowerCase().includes(".pdf") || previewDoc.includes("token=") ? (
+              <iframe src={previewDoc} className="w-full max-w-5xl h-full bg-white rounded-xl"></iframe>
+            ) : (
+              <img src={previewDoc} alt="Document" className="max-w-5xl h-auto object-contain rounded-xl" />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

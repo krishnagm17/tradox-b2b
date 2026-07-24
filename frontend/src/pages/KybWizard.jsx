@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../config/firebase";
+import { supabase } from "../config/supabase";
 import { toast } from "sonner";
 import {
   Upload, Check, ArrowLeft, Shield, FileText,
-  AlertCircle, Clock, Loader2, CheckCircle2
+  AlertCircle, Clock, Loader2, CheckCircle2, XCircle
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
@@ -14,8 +15,89 @@ export default function KybWizard() {
   const [certFile, setCertFile] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  
+  // Status: "Not Submitted", "Pending", "Approved", "Rejected"
+  const [status, setStatus] = useState("Not Submitted");
+  const [kybData, setKybData] = useState(null);
   const [error, setError] = useState("");
+  
+  // Form fields
+  const [companyName, setCompanyName] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [iecNumber, setIecNumber] = useState("");
+
+  const fetchStatus = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const token = await user.getIdToken();
+      
+      const res = await fetch(`${API_BASE}/api/kyb/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status && data.status !== "Not Submitted") {
+          setStatus(data.status);
+          setKybData(data);
+        } else {
+          setStatus("Not Submitted");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch KYB status:", err);
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setCompanyName(`${user.displayName || user.email.split("@")[0]} Company`);
+        fetchStatus();
+      } else {
+        setFetching(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Supabase Realtime subscription
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'kyb_requests',
+          filter: `firebase_uid=eq.${user.uid}`
+        },
+        (payload) => {
+          console.log("Realtime update received:", payload);
+          if (payload.new && payload.new.status) {
+            setStatus(payload.new.status);
+            setKybData(payload.new);
+            if (payload.new.status === "Approved") {
+              toast.success("Your KYB verification has been approved!");
+            } else if (payload.new.status === "Rejected") {
+              toast.error("Your KYB verification was rejected.");
+            }
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleFileChange = (file) => {
     if (!file) return;
@@ -47,430 +129,282 @@ export default function KybWizard() {
       setError("Please upload your Certificate of Incorporation before submitting.");
       return;
     }
+    if (!companyName) {
+      setError("Company Name is required.");
+      return;
+    }
 
     setLoading(true);
-    setError(null);
-    const toastId = toast.loading("Submitting Certificate of Incorporation for review...");
-
-    // Convert file to Base64 Data URL so preview/download link is guaranteed to work
-    const readFileAsDataUrl = (file) => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
-    });
+    const toastId = toast.loading("Submitting verification documents...");
 
     try {
       const user = auth.currentUser;
-      const token = user ? await user.getIdToken().catch(() => "guest-token") : "guest-token";
+      const token = await user.getIdToken();
 
-      const base64Data = await readFileAsDataUrl(certFile);
+      const formData = new FormData();
+      formData.append("file", certFile);
+      formData.append("company_name", companyName);
+      if (gstNumber) formData.append("gst_number", gstNumber);
+      if (iecNumber) formData.append("iec_number", iecNumber);
 
-      let fileUrl = null;
-      try {
-        const formData = new FormData();
-        formData.append("file", certFile);
-        formData.append("document_type", "certificate_of_incorporation");
+      const res = await fetch(`${API_BASE}/api/kyb/submit`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
 
-        const uploadRes = await fetch(`${API_BASE}/api/users/kyb/upload`, {
-          method: "POST",
-          headers: token !== "guest-token" ? { Authorization: `Bearer ${token}` } : {},
-          body: formData
+      if (res.ok) {
+        toast.success("KYB submitted successfully! Admin will review within 24 hours.", { id: toastId });
+        setStatus("Pending");
+        setKybData({
+          document_name: certFile.name,
+          submitted_at: new Date().toISOString()
         });
-
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          fileUrl = uploadData.url;
-        }
-      } catch (uploadErr) {
-        console.warn("Upload endpoint notice:", uploadErr);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Submission failed");
       }
-
-      const finalFileUrl = fileUrl || base64Data;
-
-      // Submit KYB status with full user info so admin sees correct name/email
-      const userName = user?.displayName || user?.email?.split("@")[0] || "Unknown User";
-      const userEmail = user?.email || "unknown@user.com";
-      const companyName = `${userName} Company`;
-
-      try {
-
-        const res = await fetch(`${API_BASE}/api/users/kyb`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token !== "guest-token" ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            document_type: "certificate_of_incorporation",
-            file_name: certFile.name,
-            file_url: finalFileUrl,
-            status: "SUBMITTED",
-            // User info for admin panel display
-            user_name: userName,
-            user_email: userEmail,
-            company_name: companyName,
-            mobile: user?.phoneNumber || "Not Provided"
-          })
-        });
-
-        if (res.ok) {
-          toast.success("KYB submitted successfully! Admin will review within 24 hours.", { id: toastId });
-        } else {
-          toast.success("KYB document submitted for review!", { id: toastId });
-        }
-      } catch (submitErr) {
-        console.warn("Backend submit notice:", submitErr);
-        toast.success("KYB document submitted successfully!", { id: toastId });
-      }
-
-
-      // ── SAVE TO SUPABASE (kyb_requests table + users table fallback) ──────
-      try {
-        const fsUser  = auth.currentUser;
-        const fsUid   = fsUser?.uid || "local-user-1";
-        const fsEmail = fsUser?.email || "unknown@user.com";
-        const fsName  = fsUser?.displayName || fsEmail.split("@")[0] || "Trader";
-        const fsComp  = companyName || `${fsName} Company`;
-        const fsPhone = fsUser?.phoneNumber || "Not Provided";
-        const nowIso  = new Date().toISOString();
-
-        // Store base64 document URL if small enough (< 900KB)
-        const docUrlToStore = finalFileUrl && finalFileUrl.length < 900_000 ? finalFileUrl : null;
-
-        try {
-          const { supabase } = await import('../config/supabase');
-
-          // 1. Write to primary kyb_requests table
-          try {
-            const { error: reqErr } = await supabase
-              .from('kyb_requests')
-              .upsert({
-                company_id: fsUid,
-                firebase_uid: fsUid,
-                company_name: fsComp,
-                user_name: fsName,
-                user_email: fsEmail,
-                gst_number: null,
-                iec_number: null,
-                document_url: docUrlToStore,
-                document_type: 'Certificate of Incorporation',
-                status: 'Pending',
-                submitted_at: nowIso
-              });
-            if (reqErr) console.warn("kyb_requests notice:", reqErr.message);
-            else console.log("✓ Saved to Supabase kyb_requests table!");
-          } catch (reqE) {
-            console.warn("kyb_requests error:", reqE);
-          }
-
-          // 2. Also write to users table (fallback)
-          const kybDataPayload = JSON.stringify({
-            status: 'SUBMITTED',
-            docName: certFile.name,
-            docUrl: docUrlToStore,
-            submittedAt: nowIso,
-            userName: fsName,
-            companyName: fsComp,
-            mobile: fsPhone,
-            gst: null,
-            iec: null
-          });
-
-          const { data: updateRes, error: updateErr } = await supabase
-            .from('users')
-            .update({ kybStatus: kybDataPayload })
-            .eq('firebase_uid', fsUid)
-            .select();
-
-          if (updateErr || !updateRes || updateRes.length === 0) {
-            await supabase
-              .from('users')
-              .upsert({
-                id: fsUid,
-                firebase_uid: fsUid,
-                email: fsEmail,
-                role: 'TRADER',
-                kybStatus: kybDataPayload
-              });
-          }
-          console.log("✓ KYB submission successfully saved to Supabase!");
-        } catch (supabaseErr) {
-          console.warn("Supabase direct write notice:", supabaseErr);
-        }
-        
-      } catch (fsErr) {
-        console.warn("Supabase logic error:", fsErr);
-      }
-
-      // Save locally too (for same-browser view)
-      localStorage.setItem("kyb_submitted_doc", certFile.name);
-      if (finalFileUrl) {
-        localStorage.setItem("kyb_submitted_url", finalFileUrl);
-        try {
-          const user = auth.currentUser;
-          const adminStore = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
-          const uid = user?.uid || "local-user-1";
-          const userEmail = user?.email || "unknown@user.com";
-          const userName = user?.displayName || userEmail.split("@")[0];
-          const filtered = adminStore.filter(e => e.id !== uid && e.userEmail !== userEmail);
-          filtered.unshift({
-            id: uid, userEmail, userName,
-            companyName: `${userName} Company`,
-            documentName: certFile.name,
-            documentUrl: finalFileUrl,
-            kybStatus: "SUBMITTED",
-            submittedAt: new Date().toISOString(),
-            mobile: user?.phoneNumber || "+917777777777",
-            country: "India", gst: null, iec: null
-          });
-          localStorage.setItem("kyb_admin_store", JSON.stringify(filtered));
-        } catch { /* ignore */ }
-      }
-      localStorage.setItem("kyb_status", "SUBMITTED");
-      setSubmitted(true);
-    } catch (err) {
-      console.error(err);
-      toast.success("KYB document submitted successfully!", { id: toastId });
-      setSubmitted(true);
+    } catch (submitErr) {
+      console.error("KYB submit error:", submitErr);
+      setError(submitErr.message || "Failed to submit KYB. Please try again.");
+      toast.error("Failed to submit KYB.", { id: toastId });
     } finally {
       setLoading(false);
     }
   };
 
-  React.useEffect(() => {
-    const savedDoc = localStorage.getItem("kyb_submitted_doc");
-    const savedStatus = localStorage.getItem("kyb_status");
-    if (savedDoc || savedStatus === "SUBMITTED" || savedStatus === "VERIFIED") {
-      setSubmitted(true);
-    }
-  }, []);
-
-  // ─── STATUS TRACKING SCREEN (FOR REGULAR USERS) ───────────────────────────
-  if (submitted) {
-    const currentDoc = certFile?.name || localStorage.getItem("kyb_submitted_doc") || "Certificate_of_Incorporation.pdf";
-    const status = localStorage.getItem("kyb_status") || "SUBMITTED";
-
+  if (fetching) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full text-center bg-white rounded-3xl border border-slate-200 p-8 shadow-xl">
-          {status === "VERIFIED" ? (
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-            </div>
-          ) : (
-            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
-            </div>
-          )}
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#10B981] animate-spin" />
+      </div>
+    );
+  }
 
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">KYB Verification Status</h1>
+  // --- STATUS VIEWS ---
+  if (status === "Pending") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Clock className="w-10 h-10 text-amber-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#0B1220] mb-2">KYB Verification Status</h2>
           
-          {status === "VERIFIED" ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6 text-left">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-emerald-900 mb-1">✅ Approved by Platform Owner</p>
-                  <p className="text-xs text-emerald-700">
-                    Your Certificate of Incorporation has been verified. Your account is active for bulk commodity trading.
-                  </p>
-                </div>
-              </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8 text-left">
+            <div className="flex items-center gap-3 mb-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <h3 className="font-bold text-amber-900">Awaiting Owner Approval</h3>
             </div>
-          ) : (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 text-left">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-amber-900 mb-1">⏳ Awaiting Owner Approval</p>
-                  <p className="text-xs text-amber-700 leading-relaxed">
-                    Your document has been submitted successfully. <strong>Only the platform owner can review and approve KYB requests.</strong>
-                  </p>
-                  <p className="text-xs text-amber-700 mt-2 font-medium">
-                    You can track your status right here on this page.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-left">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Uploaded Document</span>
-              <span className="text-[0.65rem] font-bold font-mono bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full">
-                {status}
-              </span>
-            </div>
-            <p className="text-sm font-bold text-slate-900 truncate">{currentDoc}</p>
-            <p className="text-xs text-slate-400 mt-0.5">Certificate of Incorporation</p>
+            <p className="text-amber-800 text-sm leading-relaxed">
+              Your document has been submitted successfully. <strong>Only the platform owner can review and approve KYB requests.</strong>
+            </p>
           </div>
 
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-md"
-            >
-              Return to Dashboard
-            </button>
-            
-            <button
-              onClick={() => setSubmitted(false)}
-              className="w-full py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
-            >
-              Upload Different Document
-            </button>
+          <div className="border border-slate-200 rounded-xl p-4 flex items-center justify-between bg-slate-50 mb-8 text-left">
+            <div>
+              <p className="text-xs font-bold text-slate-500 mb-1">UPLOADED DOCUMENT</p>
+              <p className="font-medium text-[#0B1220]">{kybData?.document_name || "Document.pdf"}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Submitted: {kybData?.submitted_at ? new Date(kybData.submitted_at).toLocaleDateString() : "Just now"}
+              </p>
+            </div>
+            <div className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full border border-amber-200">
+              PENDING
+            </div>
           </div>
+
+          <button onClick={() => navigate("/dashboard")} className="w-full py-3.5 bg-[#10B981] text-white font-bold rounded-xl shadow-lg hover:bg-[#0EA5E9] transition-all">
+            Return to Dashboard
+          </button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
-      <div className="max-w-2xl w-full">
-
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-300 px-3 py-2 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back
+  if (status === "Approved") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center">
+          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <CheckCircle2 className="w-10 h-10 text-[#10B981]" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#0B1220] mb-2">KYB Approved!</h2>
+          <p className="text-slate-600 mb-8">Your business has been successfully verified. You now have full access to trading tools.</p>
+          <button onClick={() => navigate("/dashboard")} className="w-full py-3.5 bg-[#10B981] text-white font-bold rounded-xl shadow-lg hover:bg-[#0EA5E9] transition-all">
+            Enter Dashboard
           </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Business Verification (KYB)</h1>
-            <p className="text-xs text-slate-500">Know Your Business — Required to unlock full trading features</p>
-          </div>
-        </div>
-
-        {/* Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
-          <div className="flex gap-3">
-            <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-blue-900 mb-1">Why do we need this?</p>
-              <p className="text-xs text-blue-800 leading-relaxed">
-                To protect all traders on our platform, we verify every business before enabling trade. This prevents fraud
-                and ensures you're trading with legitimate, registered companies.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Certificate of Incorporation</h2>
-                <p className="text-xs text-slate-500">Upload your official company registration certificate</p>
-              </div>
-              <div className="ml-auto">
-                <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-1 rounded-full">Required</span>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Error */}
-            {error && (
-              <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <span className="text-xs text-rose-700 font-medium">{error}</span>
-              </div>
-            )}
-
-            {/* File Upload Zone */}
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                dragging
-                  ? "border-emerald-400 bg-emerald-50"
-                  : certFile
-                  ? "border-emerald-400 bg-emerald-50/50"
-                  : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50/30"
-              }`}
-              onClick={() => document.getElementById("cert-upload").click()}
-            >
-              <input
-                id="cert-upload"
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => handleFileChange(e.target.files[0])}
-              />
-
-              {certFile ? (
-                <div>
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Check className="w-8 h-8 text-emerald-600" />
-                  </div>
-                  <p className="text-base font-bold text-emerald-900 mb-1">{certFile.name}</p>
-                  <p className="text-xs text-emerald-700 mb-3">
-                    {(certFile.size / 1024).toFixed(0)} KB · {certFile.type.includes("pdf") ? "PDF" : "Image"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setCertFile(null); }}
-                    className="text-xs text-slate-500 underline hover:text-slate-800"
-                  >
-                    Remove & upload different file
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-7 h-7 text-slate-400" />
-                  </div>
-                  <p className="text-base font-semibold text-slate-900 mb-1">
-                    {dragging ? "Drop your file here" : "Drag & drop or click to upload"}
-                  </p>
-                  <p className="text-xs text-slate-500 mb-2">
-                    Your official Certificate of Incorporation from the government/registrar
-                  </p>
-                  <p className="text-[0.65rem] text-slate-400">
-                    Accepted: PDF, JPG, PNG · Max size: 10MB
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* What is a Certificate of Incorporation */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <p className="text-xs font-bold text-slate-800 mb-2">What is a Certificate of Incorporation?</p>
-              <ul className="text-xs text-slate-600 space-y-1.5">
-                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> Official document issued by the government when a company is formed</li>
-                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> Also called "Company Registration Certificate" or "Articles of Incorporation"</li>
-                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> Should show: Company Name, Registration Number, Date of Incorporation</li>
-                <li className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" /> For Indian businesses: ROC certificate; UAE: Trade License; US: State filing receipt</li>
-              </ul>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading || !certFile}
-              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
-              ) : (
-                <>Submit for Admin Review →</>
-              )}
-            </button>
-
-            <p className="text-center text-xs text-slate-400">
-              After submission, our compliance team will manually review your document. You'll be notified via email.
-            </p>
-          </form>
         </div>
       </div>
+    );
+  }
+
+  if (status === "Rejected") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <XCircle className="w-10 h-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#0B1220] mb-2">Verification Rejected</h2>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-5 mb-8 text-left">
+            <p className="text-red-800 text-sm leading-relaxed mb-2">
+              Unfortunately, your recent KYB submission was rejected.
+            </p>
+            <p className="text-red-900 text-sm font-semibold">
+              Reason: {kybData?.rejection_reason || "No specific reason provided by admin."}
+            </p>
+          </div>
+          <button onClick={() => { setStatus("Not Submitted"); setCertFile(null); }} className="w-full py-3.5 bg-[#10B981] text-white font-bold rounded-xl shadow-lg hover:bg-[#0EA5E9] mb-3 transition-all">
+            Submit New Document
+          </button>
+          <button onClick={() => navigate("/dashboard")} className="w-full py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl shadow hover:bg-slate-200 transition-all">
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- DEFAULT UPLOAD VIEW (Not Submitted) ---
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <nav className="w-full bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors group">
+            <ArrowLeft className="w-5 h-5 text-slate-500 group-hover:text-slate-900" />
+          </button>
+          <h1 className="text-xl font-bold text-[#0B1220] flex items-center gap-2">
+            <Shield className="w-6 h-6 text-[#10B981]" />
+            KYB Verification
+          </h1>
+        </div>
+      </nav>
+
+      <main className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-2xl">
+          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-[#0B1220] mb-2">Submit Business Details</h2>
+              <p className="text-slate-500 mb-8">Upload your incorporation certificate to unlock full platform features.</p>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Company Name *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={companyName}
+                      onChange={e => setCompanyName(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-all"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">GST Number (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={gstNumber}
+                        onChange={e => setGstNumber(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">IEC Number (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={iecNumber}
+                        onChange={e => setIecNumber(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Upload Certificate *</label>
+                  {!certFile ? (
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                      onDragLeave={() => setDragging(false)}
+                      onDrop={handleDrop}
+                      className={`relative w-full h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center p-6 transition-all duration-200 ${
+                        dragging ? "border-[#10B981] bg-[#10B981]/5" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        onChange={(e) => handleFileChange(e.target.files[0])}
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-4">
+                        <Upload className={`w-6 h-6 ${dragging ? "text-[#10B981]" : "text-slate-400"}`} />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-700 mb-1">
+                        Drag & drop or <span className="text-[#10B981]">click to upload</span>
+                      </p>
+                      <p className="text-xs text-slate-500">PDF, JPG, PNG (Max 10MB)</p>
+                    </div>
+                  ) : (
+                    <div className="w-full p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between group">
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div className="truncate pr-4">
+                          <p className="text-sm font-bold text-emerald-900 truncate">{certFile.name}</p>
+                          <p className="text-xs text-emerald-600">
+                            {(certFile.size / 1024 / 1024).toFixed(2)} MB • Ready to submit
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCertFile(null)}
+                        className="text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={loading || !certFile}
+                    className="w-full py-3.5 bg-[#0B1220] hover:bg-[#1f2937] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Submitting securely...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-5 h-5" />
+                        Submit Verification
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

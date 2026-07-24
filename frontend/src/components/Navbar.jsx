@@ -4,6 +4,7 @@ import { User, LogOut, Loader2, Edit3, X, Check, Inbox, MessageSquare, Home, Shi
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { COMMODITIES } from "../utils/constants";
+import Notifications from "./Notifications";
 
 export default function Navbar({ isFixed = false, centerContent = null, bgColor = "bg-white border-b border-slate-200 text-slate-900", padding = "px-6" }) {
   const navigate = useNavigate();
@@ -183,14 +184,17 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
           </button>
 
           {user && !loading && (
-            <button 
-              onClick={() => navigate("/inbox")}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 transition-all text-xs font-semibold shadow-sm"
-              title="View Inbox & Negotiations"
-            >
-              <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="hidden sm:inline">Inbox</span>
-            </button>
+            <>
+              <Notifications />
+              <button 
+                onClick={() => navigate("/inbox")}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 transition-all text-xs font-semibold shadow-sm"
+                title="View Inbox & Negotiations"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="hidden sm:inline">Inbox</span>
+              </button>
+            </>
           )}
           
           {loading ? (

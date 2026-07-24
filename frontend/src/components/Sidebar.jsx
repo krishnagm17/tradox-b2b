@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, LayoutDashboard, Inbox, FileText, Package, Users, Settings, LogOut, User, Menu, X, Shield } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
+import Notifications from "./Notifications";
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -110,10 +111,27 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* Footer / User Actions */}
-        <div className="p-3 border-t border-slate-800 space-y-1">
-          <div className="text-[0.65rem] font-mono tracking-widest text-slate-500 uppercase mb-2 px-3 mt-2">Account</div>
-          
+        {/* Action Buttons */}
+        <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-around">
+          <Notifications />
+          <button 
+            onClick={() => { navigate("/profile"); setIsOpen(false); }}
+            className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors"
+            title="Profile Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={handleSignOut}
+            className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Footer / User Info */}
+        <div className="p-4">
           <button 
             onClick={() => { navigate("/profile"); setIsOpen(false); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
