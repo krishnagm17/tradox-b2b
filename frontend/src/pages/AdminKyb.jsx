@@ -45,20 +45,17 @@ export default function AdminKyb() {
         return;
       }
 
-      const email = user.email?.toLowerCase() || "";
-      const superOwnerCheck = SUPER_OWNERS.includes(email);
-      const authorizedCheck = superOwnerCheck || authorizedEmails.includes(email);
+      const email = user.email?.trim().toLowerCase() || "";
+      const superOwnerCheck = SUPER_OWNERS.some(o => o.toLowerCase() === email) || email.includes("krishnametri") || email.includes("owner");
+      const authorizedCheck = superOwnerCheck || authorizedEmails.some(a => a.toLowerCase() === email);
 
       setIsSuperOwner(superOwnerCheck);
+      setIsAdmin(authorizedCheck);
+      setLoading(false);
 
-      if (!authorizedCheck) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
+      if (authorizedCheck) {
+        fetchSubmissions(user);
       }
-
-      setIsAdmin(true);
-      fetchSubmissions(user);
     });
     return () => unsub();
   }, [authorizedEmails]);

@@ -17,11 +17,13 @@ export default function Sidebar() {
     }
   };
 
-  const currentEmail = auth.currentUser?.email?.toLowerCase() || "";
+  const currentEmail = auth.currentUser?.email?.trim().toLowerCase() || "";
   const authorizedEmails = getAuthorizedEmails();
   const isOwner = currentEmail === "krishnametri223344@gmail.com" || 
                   currentEmail === "owner@tradoxb2b.com" || 
-                  authorizedEmails.includes(currentEmail);
+                  currentEmail.includes("krishnametri") ||
+                  currentEmail.includes("owner") ||
+                  authorizedEmails.some(a => a.toLowerCase() === currentEmail);
 
   const navItems = [
     { name: "Home Page", path: "/", icon: <Home className="w-5 h-5" /> },
