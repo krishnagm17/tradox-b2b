@@ -242,8 +242,12 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                       KYB Verification & Status
                     </button>
 
-                    {/* Admin KYB Approvals — Only for Owner/Authorized Admins */}
-                    {(user.email?.toLowerCase().includes("krishnametri") || user.email?.toLowerCase().includes("owner") || user.email?.toLowerCase().includes("admin") || localStorage.getItem("kyb_admin_authorized") === "true") && (
+                    {/* Admin KYB Approvals — Strictly Only for Owner & Authorized Admins */}
+                    {(
+                      user.email?.toLowerCase() === "krishnametri223344@gmail.com" ||
+                      user.email?.toLowerCase() === "owner@tradoxb2b.com" ||
+                      (JSON.parse(localStorage.getItem("kyb_authorized_emails") || "[]").map(e => e.toLowerCase()).includes(user.email?.toLowerCase()))
+                    ) && (
                       <button 
                         onClick={() => { setShowDropdown(false); navigate("/admin/kyb"); }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-medium"

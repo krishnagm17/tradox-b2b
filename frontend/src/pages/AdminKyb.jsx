@@ -39,7 +39,7 @@ export default function AdminKyb() {
       }
 
       const email = user.email?.toLowerCase() || "";
-      const isOwner = email.includes("krishnametri") || email.includes("owner") || email.includes("admin") || authorizedEmails.includes(email);
+      const isOwner = email === "krishnametri223344@gmail.com" || email === "owner@tradoxb2b.com" || authorizedEmails.includes(email);
 
       if (!isOwner) {
         setIsAdmin(false);

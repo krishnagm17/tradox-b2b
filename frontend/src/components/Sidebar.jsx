@@ -9,8 +9,19 @@ export default function Sidebar() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const userEmail = auth.currentUser?.email?.toLowerCase() || "";
-  const isOwner = userEmail.includes("krishnametri") || userEmail.includes("owner") || userEmail.includes("admin") || localStorage.getItem("kyb_admin_authorized") === "true";
+  const getAuthorizedEmails = () => {
+    try {
+      return JSON.parse(localStorage.getItem("kyb_authorized_emails") || "[]").map(e => e.toLowerCase());
+    } catch {
+      return [];
+    }
+  };
+
+  const currentEmail = auth.currentUser?.email?.toLowerCase() || "";
+  const authorizedEmails = getAuthorizedEmails();
+  const isOwner = currentEmail === "krishnametri223344@gmail.com" || 
+                  currentEmail === "owner@tradoxb2b.com" || 
+                  authorizedEmails.includes(currentEmail);
 
   const navItems = [
     { name: "Home Page", path: "/", icon: <Home className="w-5 h-5" /> },
