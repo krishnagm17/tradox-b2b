@@ -5,7 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { toast } from "sonner";
 import {
   Shield, CheckCircle2, XCircle, Clock, ArrowLeft,
-  Building2, FileText, User, Download, Loader2, Search, Phone, Mail
+  Building2, FileText, User, Download, Loader2, Search, Phone, Mail, Eye
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
@@ -48,72 +48,41 @@ export default function AdminKyb() {
       if (res.ok) {
         const rawData = await res.json();
         if (Array.isArray(rawData)) {
-          const formatted = rawData.map((item, idx) => ({
-            id: item.id || item.userId || `sub-${idx}`,
-            companyName: item.companyName || "Company Application",
-            userEmail: item.userEmail || "No email provided",
-            userName: item.userName || "Applicant",
-            mobile: item.mobile || item.phone || "No phone provided",
-            submittedAt: item.submittedAt || new Date().toISOString(),
-            kybStatus: item.kybStatus || "SUBMITTED",
-            documentName: item.documentName || "Certificate_of_Incorporation.pdf",
-            documentUrl: item.documentUrl || null,
-            country: item.country || "Global",
-            gst: item.gst || null,
-            iec: item.iec || null
-          }));
+          const formatted = rawData.map((item, idx) => {
+            const docUrl = item.documentUrl;
+            const fullDocUrl = docUrl 
+              ? (docUrl.startsWith("http") ? docUrl : `${API_BASE}${docUrl.startsWith("/") ? "" : "/"}${docUrl}`)
+              : null;
+
+            return {
+              id: item.id || item.userId || `sub-${idx}`,
+              companyName: item.companyName || "Real Company Submission",
+              userEmail: item.userEmail || "No email provided",
+              userName: item.userName || "Applicant",
+              mobile: item.mobile || item.phone || "No phone provided",
+              submittedAt: item.submittedAt || new Date().toISOString(),
+              kybStatus: item.kybStatus || "SUBMITTED",
+              documentName: item.documentName || "Certificate_of_Incorporation.pdf",
+              documentUrl: fullDocUrl,
+              country: item.country || "Global",
+              gst: item.gst || null,
+              iec: item.iec || null
+            };
+          });
           setSubmissions(formatted);
         } else {
-          setSubmissions(getMockSubmissions());
+          setSubmissions([]);
         }
       } else {
-        setSubmissions(getMockSubmissions());
+        setSubmissions([]);
       }
     } catch (err) {
       console.error("Error fetching KYB submissions", err);
-      setSubmissions(getMockSubmissions());
+      setSubmissions([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getMockSubmissions = () => [
-    {
-      id: "mock-1",
-      companyName: "Acme Trade Global Pvt Ltd",
-      userEmail: "acme@example.com",
-      userName: "Raj Kumar",
-      submittedAt: new Date(Date.now() - 86400000).toISOString(),
-      kybStatus: "SUBMITTED",
-      documentName: "Certificate_of_Incorporation.pdf",
-      documentUrl: null,
-      country: "India",
-      gst: "22AAAAA0000A1Z5"
-    },
-    {
-      id: "mock-2",
-      companyName: "Dubai Export FZE",
-      userEmail: "info@dubaiexport.ae",
-      userName: "Ahmed Al-Rashidi",
-      submittedAt: new Date(Date.now() - 172800000).toISOString(),
-      kybStatus: "SUBMITTED",
-      documentName: "Incorporation_Certificate.pdf",
-      documentUrl: null,
-      country: "UAE",
-      iec: "0512345678"
-    },
-    {
-      id: "mock-3",
-      companyName: "Atlantic Commodities Ltd",
-      userEmail: "ops@atlanticcommodities.com",
-      userName: "Sarah Johnson",
-      submittedAt: new Date(Date.now() - 259200000).toISOString(),
-      kybStatus: "VERIFIED",
-      documentName: "Articles_of_Incorporation.pdf",
-      documentUrl: null,
-      country: "UK",
-    }
-  ];
 
   const handleApprove = async (userId, companyName) => {
     setActionLoading(prev => ({ ...prev, [userId]: "approve" }));
@@ -303,26 +272,42 @@ export default function AdminKyb() {
                     )}
                   </div>
 
-                  {/* Document */}
+                  {/* Document View & Download */}
                   {sub.documentName && (
-                    <div className="shrink-0">
-                      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                        <FileText className="w-4 h-4 text-slate-500" />
-                        <div>
-                          <p className="text-xs font-semibold text-slate-800 max-w-[140px] truncate">{sub.documentName}</p>
-                          <p className="text-[0.6rem] text-slate-400">Certificate of Incorporation</p>
+                    <div className="shrink-0 flex flex-col gap-1.5 min-w-[170px]">
+                      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                        <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div className="overflow-hidden">
+                          <p className="text-xs font-bold text-slate-900 truncate max-w-[120px]" title={sub.documentName}>{sub.documentName}</p>
+                          <p className="text-[0.6rem] text-slate-500 font-mono">Incorporation Certificate</p>
                         </div>
-                        {sub.documentUrl ? (
-                          <a href={sub.documentUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 transition-colors">
-                            <Download className="w-4 h-4" />
-                          </a>
-                        ) : (
-                          <span title="File URL not available" className="text-slate-300">
-                            <Download className="w-4 h-4" />
-                          </span>
-                        )}
                       </div>
+                      
+                      {sub.documentUrl ? (
+                        <div className="flex gap-2">
+                          <a 
+                            href={sub.documentUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold text-xs py-1.5 px-3 rounded-lg text-center transition-colors flex items-center justify-center gap-1 shadow-sm"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View
+                          </a>
+                          <a 
+                            href={sub.documentUrl} 
+                            download 
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs py-1.5 px-3 rounded-lg text-center transition-colors flex items-center justify-center gap-1 shadow-sm"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-[0.65rem] text-rose-600 font-semibold bg-rose-50 border border-rose-200 px-2 py-1 rounded text-center">
+                          Document Pending Upload
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
