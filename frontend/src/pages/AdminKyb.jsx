@@ -68,7 +68,8 @@ export default function AdminKyb() {
           
         if (!error && usersData) {
           usersData.forEach(data => {
-            if (!data.kybStatus || data.kybStatus === 'PENDING') return; // skip unsubmitted
+            const rawStatus = (data.kybStatus || '').trim().toUpperCase();
+            if (!rawStatus || rawStatus === 'PENDING') return; // skip unsubmitted or pending
             const uid = data.firebase_uid || data.id || data.email;
             fsMap.set(uid, {
               id: uid,
@@ -77,7 +78,7 @@ export default function AdminKyb() {
               userName:     data.name         || data.email?.split("@")[0] || "—",
               mobile:       data.phone        || "Not Provided",
               submittedAt:  data.submittedAt  || data.updatedAt || new Date().toISOString(),
-              kybStatus:    data.kybStatus    || "SUBMITTED",
+              kybStatus:    rawStatus,
               documentName: data.documentName || "Certificate.pdf",
               documentUrl:  data.documentUrl  || null,
               country:      "India",
