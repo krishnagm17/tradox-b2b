@@ -89,10 +89,11 @@ export default function KybWizard() {
       const finalFileUrl = fileUrl || base64Data;
 
       // Submit KYB status with full user info so admin sees correct name/email
+      const userName = user?.displayName || user?.email?.split("@")[0] || "Unknown User";
+      const userEmail = user?.email || "unknown@user.com";
+      const companyName = `${userName} Company`;
+
       try {
-        const userName = user?.displayName || user?.email?.split("@")[0] || "Unknown User";
-        const userEmail = user?.email || "unknown@user.com";
-        const companyName = `${userName} Company`;
 
         const res = await fetch(`${API_BASE}/api/users/kyb`, {
           method: "POST",
