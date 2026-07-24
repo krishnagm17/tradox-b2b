@@ -519,7 +519,27 @@ export default function AdminKyb() {
                 <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 {fmtDate(sub.submittedAt)}
               </span>
+              {sub.gst && (
+                <span className="flex items-center gap-1.5 text-slate-700 font-mono text-[0.7rem]">
+                  <strong>GST:</strong> {sub.gst}
+                </span>
+              )}
+              {sub.iec && (
+                <span className="flex items-center gap-1.5 text-slate-700 font-mono text-[0.7rem]">
+                  <strong>IEC:</strong> {sub.iec}
+                </span>
+              )}
             </div>
+            {sub.approvedBy && isApproved && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 mt-1">
+                <strong>Approved by:</strong> {sub.approvedBy} {sub.approvedAt ? `on ${fmtDate(sub.approvedAt)}` : ''}
+              </p>
+            )}
+            {sub.rejectedBy && isRejected && (
+              <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 mt-1">
+                <strong>Rejected by:</strong> {sub.rejectedBy} {sub.rejectedAt ? `on ${fmtDate(sub.rejectedAt)}` : ''}
+              </p>
+            )}
             {sub.rejectReason && (
               <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 mt-1">
                 <strong>Reason:</strong> {sub.rejectReason}
