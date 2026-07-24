@@ -124,34 +124,58 @@ export default function KybWizard() {
       }
 
 
-      // ── SAVE TO SUPABASE (cross-browser, real-time, visible to admin) ──────
+      // ── SAVE TO SUPABASE (kyb_requests table + users table fallback) ──────
       try {
         const fsUser  = auth.currentUser;
         const fsUid   = fsUser?.uid || "local-user-1";
         const fsEmail = fsUser?.email || "unknown@user.com";
         const fsName  = fsUser?.displayName || fsEmail.split("@")[0] || "Trader";
-        const fsComp  = `${fsName} Company`;
+        const fsComp  = companyName || `${fsName} Company`;
         const fsPhone = fsUser?.phoneNumber || "Not Provided";
         const nowIso  = new Date().toISOString();
 
         // Store base64 document URL if small enough (< 900KB)
         const docUrlToStore = finalFileUrl && finalFileUrl.length < 900_000 ? finalFileUrl : null;
-        
-        // Encode metadata into kybStatus string to fit existing users table schema
-        const kybDataPayload = JSON.stringify({
-          status: 'SUBMITTED',
-          docName: certFile.name,
-          docUrl: docUrlToStore,
-          submittedAt: nowIso,
-          userName: fsName,
-          companyName: fsComp,
-          mobile: fsPhone
-        });
 
         try {
           const { supabase } = await import('../config/supabase');
-          
-          // 1. Try updating existing user row
+
+          // 1. Write to primary kyb_requests table
+          try {
+            const { error: reqErr } = await supabase
+              .from('kyb_requests')
+              .upsert({
+                company_id: fsUid,
+                firebase_uid: fsUid,
+                company_name: fsComp,
+                user_name: fsName,
+                user_email: fsEmail,
+                gst_number: gst || null,
+                iec_number: iec || null,
+                document_url: docUrlToStore,
+                document_type: 'Certificate of Incorporation',
+                status: 'Pending',
+                submitted_at: nowIso
+              });
+            if (reqErr) console.warn("kyb_requests notice:", reqErr.message);
+            else console.log("✓ Saved to Supabase kyb_requests table!");
+          } catch (reqE) {
+            console.warn("kyb_requests error:", reqE);
+          }
+
+          // 2. Also write to users table (fallback)
+          const kybDataPayload = JSON.stringify({
+            status: 'SUBMITTED',
+            docName: certFile.name,
+            docUrl: docUrlToStore,
+            submittedAt: nowIso,
+            userName: fsName,
+            companyName: fsComp,
+            mobile: fsPhone,
+            gst: gst || null,
+            iec: iec || null
+          });
+
           const { data: updateRes, error: updateErr } = await supabase
             .from('users')
             .update({ kybStatus: kybDataPayload })
@@ -159,8 +183,6 @@ export default function KybWizard() {
             .select();
 
           if (updateErr || !updateRes || updateRes.length === 0) {
-            // 2. User row does not exist in Supabase yet — upsert valid schema columns only!
-            console.log("User not in Supabase yet, upserting user record...");
             await supabase
               .from('users')
               .upsert({

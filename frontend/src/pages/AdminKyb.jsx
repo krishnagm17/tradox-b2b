@@ -57,19 +57,52 @@ export default function AdminKyb() {
       const latestUrl    = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
       const latestStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
 
-      // STEP 1: Read ALL submissions from Supabase (works across all browsers)
-      const fsMap = new Map(); // uid -> submission
+      // STEP 1: Read from primary kyb_requests table
       try {
         const { supabase } = await import('../config/supabase');
-        // Fetch all users from Supabase
-        const { data: usersData, error } = await supabase
-          .from('users')
+        const { data: reqData, error: reqErr } = await supabase
+          .from('kyb_requests')
           .select('*');
-          
+
+        if (!reqErr && reqData && reqData.length > 0) {
+          reqData.forEach(item => {
+            const rawStatus = (item.status || 'Submitted').trim();
+            let normStatus = 'SUBMITTED';
+            if (rawStatus.toLowerCase() === 'approved') normStatus = 'VERIFIED';
+            else if (rawStatus.toLowerCase() === 'rejected') normStatus = 'REJECTED';
+            else normStatus = 'SUBMITTED';
+
+            const uid = item.firebase_uid || item.id || item.user_email;
+            fsMap.set(uid, {
+              id: uid,
+              companyName: item.company_name || "Registered Company",
+              userEmail: item.user_email || "—",
+              userName: item.user_name || item.user_email?.split("@")[0] || "—",
+              mobile: item.mobile || "Not Provided",
+              submittedAt: item.submitted_at || item.created_at || new Date().toISOString(),
+              kybStatus: normStatus,
+              documentName: item.document_type || "Certificate.pdf",
+              documentUrl: item.document_url || null,
+              country: "India",
+              gst: item.gst_number || null,
+              iec: item.iec_number || null,
+              rejectReason: item.rejection_reason || null,
+              approvedBy: item.approved_by || null,
+              approvedAt: item.approved_at || null,
+              rejectedBy: item.rejected_by || null,
+              rejectedAt: item.rejected_at || null,
+            });
+          });
+        }
+      } catch (reqE) { console.warn("kyb_requests read notice:", reqE); }
+
+      // STEP 2: Read from fallback users table
+      try {
+        const { supabase } = await import('../config/supabase');
+        const { data: usersData, error } = await supabase.from('users').select('*');
         if (!error && usersData) {
           usersData.forEach(userRow => {
             if (!userRow.kybStatus) return;
-
             let status = 'PENDING';
             let docName = 'Certificate.pdf';
             let docUrl = null;
@@ -91,36 +124,22 @@ export default function AdminKyb() {
                 if (meta.companyName) companyName = meta.companyName;
                 if (meta.mobile) mobile = meta.mobile;
                 if (meta.rejectReason) rejectReason = meta.rejectReason;
-              } catch {
-                status = strVal.toUpperCase();
-              }
-            } else {
-              status = strVal.toUpperCase();
-            }
+              } catch { status = strVal.toUpperCase(); }
+            } else { status = strVal.toUpperCase(); }
 
-            if (status === 'PENDING') return; // skip unsubmitted
+            if (status === 'PENDING') return;
 
             const uid = userRow.firebase_uid || userRow.id || userRow.email;
-            fsMap.set(uid, {
-              id: uid,
-              companyName,
-              userEmail: userRow.email || "—",
-              userName,
-              mobile,
-              submittedAt,
-              kybStatus: status,
-              documentName: docName,
-              documentUrl: docUrl,
-              country: "India",
-              gst: null,
-              iec: null,
-              rejectReason,
-            });
+            if (!fsMap.has(uid)) {
+              fsMap.set(uid, {
+                id: uid, companyName, userEmail: userRow.email || "—", userName, mobile,
+                submittedAt, kybStatus: status, documentName: docName, documentUrl: docUrl,
+                country: "India", gst: null, iec: null, rejectReason
+              });
+            }
           });
         }
-      } catch (fsErr) {
-        console.warn("Supabase read notice (non-fatal):", fsErr);
-      }
+      } catch (fsErr) { console.warn("Supabase read notice (non-fatal):", fsErr); }
 
       // STEP 2: Enrich Firestore data with local document URLs (for same-browser preview)
       if (user?.uid && fsMap.has(user.uid) && latestUrl) {
@@ -179,6 +198,7 @@ export default function AdminKyb() {
   }, []);
 
   useEffect(() => {
+    let subChannel = null;
     const unsub = onAuthStateChanged(auth, async (user) => {
       const activeUser = user || auth.currentUser;
       const email = activeUser?.email?.trim().toLowerCase() || "";
@@ -190,8 +210,30 @@ export default function AdminKyb() {
       );
       setCurrentUser(activeUser);
       fetchSubmissions(activeUser);
+
+      // ── Supabase Realtime listener ──────────────────────────────────────────
+      try {
+        const { supabase } = await import('../config/supabase');
+        subChannel = supabase
+          .channel('kyb_realtime')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'kyb_requests' }, () => {
+            console.log("⚡ Realtime update from kyb_requests");
+            fetchSubmissions(activeUser);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+            console.log("⚡ Realtime update from users");
+            fetchSubmissions(activeUser);
+          })
+          .subscribe();
+      } catch (rtErr) { console.warn("Realtime channel notice:", rtErr); }
     });
-    return () => unsub();
+
+    return () => {
+      unsub();
+      if (subChannel) {
+        import('../config/supabase').then(({ supabase }) => supabase.removeChannel(subChannel)).catch(() => {});
+      }
+    };
   }, [fetchSubmissions]);
 
   // ─── Approve ──────────────────────────────────────────────────────────────
@@ -204,9 +246,19 @@ export default function AdminKyb() {
       if (userId === currentUser?.uid || userId === "local-user-1") {
         localStorage.setItem("kyb_status", "VERIFIED");
       }
-      // Write to Supabase
+      // Write to Supabase kyb_requests table
       try {
         const { supabase } = await import('../config/supabase');
+        await supabase
+          .from('kyb_requests')
+          .update({
+            status: 'Approved',
+            approved_by: currentUser?.email || 'Admin',
+            approved_at: new Date().toISOString()
+          })
+          .eq('firebase_uid', userId);
+
+        // Fallback update on users table
         const { data: rows } = await supabase.from('users').select('*').or(`firebase_uid.eq.${userId},id.eq.${userId}`);
         if (rows && rows.length > 0) {
           const row = rows[0];
@@ -215,12 +267,12 @@ export default function AdminKyb() {
             try {
               const meta = JSON.parse(row.kybStatus);
               meta.status = "VERIFIED";
+              meta.approvedBy = currentUser?.email || 'Admin';
+              meta.approvedAt = new Date().toISOString();
               updatedPayload = JSON.stringify(meta);
             } catch { updatedPayload = "VERIFIED"; }
           }
           await supabase.from('users').update({ kybStatus: updatedPayload }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
-        } else {
-          await supabase.from('users').update({ kybStatus: "VERIFIED" }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
         }
       } catch (fsErr) { console.warn("Supabase approve notice:", fsErr); }
       // Backend API
@@ -253,9 +305,20 @@ export default function AdminKyb() {
         localStorage.setItem("kyb_status", "REJECTED");
         localStorage.setItem("kyb_reject_reason", reason);
       }
-      // Write to Supabase
+      // Write to Supabase kyb_requests table
       try {
         const { supabase } = await import('../config/supabase');
+        await supabase
+          .from('kyb_requests')
+          .update({
+            status: 'Rejected',
+            rejected_by: currentUser?.email || 'Admin',
+            rejected_at: new Date().toISOString(),
+            rejection_reason: reason
+          })
+          .eq('firebase_uid', userId);
+
+        // Fallback update on users table
         const { data: rows } = await supabase.from('users').select('*').or(`firebase_uid.eq.${userId},id.eq.${userId}`);
         if (rows && rows.length > 0) {
           const row = rows[0];
@@ -265,12 +328,12 @@ export default function AdminKyb() {
               const meta = JSON.parse(row.kybStatus);
               meta.status = "REJECTED";
               meta.rejectReason = reason;
+              meta.rejectedBy = currentUser?.email || 'Admin';
+              meta.rejectedAt = new Date().toISOString();
               updatedPayload = JSON.stringify(meta);
             } catch { updatedPayload = "REJECTED"; }
           }
           await supabase.from('users').update({ kybStatus: updatedPayload }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
-        } else {
-          await supabase.from('users').update({ kybStatus: "REJECTED" }).or(`firebase_uid.eq.${userId},id.eq.${userId}`);
         }
       } catch (fsErr) { console.warn("Supabase reject notice:", fsErr); }
       // Backend API
@@ -341,12 +404,40 @@ export default function AdminKyb() {
   };
 
   // ─── Permission management ────────────────────────────────────────────────
-  const handleGrantPermission = (e) => {
+  const fetchAdminPermissions = useCallback(async () => {
+    try {
+      const { supabase } = await import('../config/supabase');
+      const { data, error } = await supabase.from('admin_permissions').select('*');
+      if (!error && data && data.length > 0) {
+        const emails = data.map(d => d.email?.toLowerCase()).filter(Boolean);
+        setAuthorizedEmails(prev => Array.from(new Set([...prev, ...emails])));
+      }
+    } catch (e) { console.warn("admin_permissions read notice:", e); }
+  }, []);
+
+  useEffect(() => {
+    fetchAdminPermissions();
+  }, [fetchAdminPermissions]);
+
+  const handleGrantPermission = async (e) => {
     e.preventDefault();
     if (!isSuperOwner) { toast.error("Only the Platform Owner can grant permissions."); return; }
     const clean = newAdminEmail.trim().toLowerCase();
     if (!clean.includes("@")) { toast.error("Enter a valid email."); return; }
     if (authorizedEmails.includes(clean)) { toast.error("Already authorized."); return; }
+    
+    // Save to Supabase admin_permissions table
+    try {
+      const { supabase } = await import('../config/supabase');
+      await supabase.from('admin_permissions').upsert({
+        email: clean,
+        name: clean.split("@")[0],
+        role: 'Admin',
+        added_by: currentUser?.email || 'Platform Owner',
+        created_at: new Date().toISOString()
+      }, { onConflict: 'email' });
+    } catch (e) { console.warn("admin_permissions write notice:", e); }
+
     const updated = [...authorizedEmails, clean];
     setAuthorizedEmails(updated);
     localStorage.setItem("kyb_authorized_emails", JSON.stringify(updated));
