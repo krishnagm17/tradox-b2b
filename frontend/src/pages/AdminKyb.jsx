@@ -11,9 +11,16 @@ import {
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
+// Super Owners list — ONLY these two owners can add or delete authorized admin users
+const SUPER_OWNERS = [
+  "krishnametri223344@gmail.com",
+  "owner@tradoxb2b.com"
+];
+
 export default function AdminKyb() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperOwner, setIsSuperOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submissions, setSubmissions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,9 +46,12 @@ export default function AdminKyb() {
       }
 
       const email = user.email?.toLowerCase() || "";
-      const isOwner = email === "krishnametri223344@gmail.com" || email === "owner@tradoxb2b.com" || authorizedEmails.includes(email);
+      const superOwnerCheck = SUPER_OWNERS.includes(email);
+      const authorizedCheck = superOwnerCheck || authorizedEmails.includes(email);
 
-      if (!isOwner) {
+      setIsSuperOwner(superOwnerCheck);
+
+      if (!authorizedCheck) {
         setIsAdmin(false);
         setLoading(false);
         return;
@@ -236,6 +246,10 @@ export default function AdminKyb() {
 
   const handleGrantPermission = (e) => {
     e.preventDefault();
+    if (!isSuperOwner) {
+      toast.error("Only the 2 Super Owners can grant admin permissions.");
+      return;
+    }
     if (!newAdminEmail.trim() || !newAdminEmail.includes("@")) {
       toast.error("Please enter a valid email address.");
       return;
@@ -253,6 +267,10 @@ export default function AdminKyb() {
   };
 
   const handleRevokePermission = (emailToRevoke) => {
+    if (!isSuperOwner) {
+      toast.error("Only the 2 Super Owners can delete or revoke admin permissions.");
+      return;
+    }
     const updated = authorizedEmails.filter(e => e !== emailToRevoke);
     setAuthorizedEmails(updated);
     localStorage.setItem("kyb_authorized_emails", JSON.stringify(updated));
@@ -328,14 +346,16 @@ export default function AdminKyb() {
           </div>
         </div>
 
-        {/* Owner Permission Manager Button */}
-        <button
-          onClick={() => setShowPermModal(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-md"
-        >
-          <Key className="w-3.5 h-3.5" />
-          Manage Permissions
-        </button>
+        {/* Owner Permission Manager Button — ONLY for 2 Super Owners */}
+        {isSuperOwner && (
+          <button
+            onClick={() => setShowPermModal(true)}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-md"
+          >
+            <Key className="w-3.5 h-3.5" />
+            Manage Permissions
+          </button>
+        )}
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
