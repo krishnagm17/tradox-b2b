@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../config/firebase";
+import { auth } from "../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, getDocs, doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import {
   Shield, CheckCircle2, XCircle, Clock, ArrowLeft,
@@ -58,30 +57,38 @@ export default function AdminKyb() {
       const latestUrl    = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
       const latestStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
 
-      // STEP 1: Read ALL submissions from Firestore (works across all browsers)
+      // STEP 1: Read ALL submissions from Supabase (works across all browsers)
       const fsMap = new Map(); // uid -> submission
       try {
-        const snapshot = await getDocs(collection(db, "kyb_submissions"));
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          fsMap.set(docSnap.id, {
-            id: docSnap.id,
-            companyName:  data.companyName  || "Registered Company",
-            userEmail:    data.userEmail    || "—",
-            userName:     data.userName     || data.userEmail?.split("@")[0] || "—",
-            mobile:       data.mobile       || "Not Provided",
-            submittedAt:  data.submittedAt?.toDate?.()?.toISOString() || data.submittedAt || new Date().toISOString(),
-            kybStatus:    data.kybStatus    || "SUBMITTED",
-            documentName: data.documentName || "Certificate.pdf",
-            documentUrl:  data.documentUrl  || null,
-            country:      data.country      || "India",
-            gst:          data.gst          || null,
-            iec:          data.iec          || null,
-            rejectReason: data.rejectReason || null,
+        const { supabase } = await import('../config/supabase');
+        // Fetch users who have submitted KYB (status is not PENDING or null)
+        const { data: usersData, error } = await supabase
+          .from('users')
+          .select('*')
+          .neq('kybStatus', 'PENDING');
+          
+        if (!error && usersData) {
+          usersData.forEach(data => {
+            if (!data.kybStatus) return; // skip if null
+            fsMap.set(data.firebase_uid, {
+              id: data.firebase_uid,
+              companyName:  data.companyName  || data.company_name || "Registered Company",
+              userEmail:    data.email        || "—",
+              userName:     data.name         || data.email?.split("@")[0] || "—",
+              mobile:       data.phone        || "Not Provided",
+              submittedAt:  data.submittedAt  || data.updatedAt || new Date().toISOString(),
+              kybStatus:    data.kybStatus    || "SUBMITTED",
+              documentName: data.documentName || "Certificate.pdf",
+              documentUrl:  data.documentUrl  || null,
+              country:      "India",
+              gst:          null,
+              iec:          null,
+              rejectReason: data.rejectReason || null,
+            });
           });
-        });
+        }
       } catch (fsErr) {
-        console.warn("Firestore read notice (non-fatal):", fsErr);
+        console.warn("Supabase read notice (non-fatal):", fsErr);
       }
 
       // STEP 2: Enrich Firestore data with local document URLs (for same-browser preview)
@@ -166,14 +173,17 @@ export default function AdminKyb() {
       if (userId === currentUser?.uid || userId === "local-user-1") {
         localStorage.setItem("kyb_status", "VERIFIED");
       }
-      // Write to Firestore
+      // Write to Supabase
       try {
-        await updateDoc(doc(db, "kyb_submissions", userId), {
-          kybStatus: "VERIFIED",
-          approvedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      } catch (fsErr) { console.warn("Firestore approve notice:", fsErr); }
+        const { supabase } = await import('../config/supabase');
+        await supabase
+          .from('users')
+          .update({
+            kybStatus: 'VERIFIED',
+            updatedAt: new Date().toISOString()
+          })
+          .eq('firebase_uid', userId);
+      } catch (fsErr) { console.warn("Supabase approve notice:", fsErr); }
       // Backend API
       const token = await auth.currentUser?.getIdToken().catch(() => null);
       if (token) {
@@ -204,15 +214,18 @@ export default function AdminKyb() {
         localStorage.setItem("kyb_status", "REJECTED");
         localStorage.setItem("kyb_reject_reason", reason);
       }
-      // Write to Firestore
+      // Write to Supabase
       try {
-        await updateDoc(doc(db, "kyb_submissions", userId), {
-          kybStatus: "REJECTED",
-          rejectReason: reason,
-          rejectedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      } catch (fsErr) { console.warn("Firestore reject notice:", fsErr); }
+        const { supabase } = await import('../config/supabase');
+        await supabase
+          .from('users')
+          .update({
+            kybStatus: 'REJECTED',
+            rejectReason: reason,
+            updatedAt: new Date().toISOString()
+          })
+          .eq('firebase_uid', userId);
+      } catch (fsErr) { console.warn("Supabase reject notice:", fsErr); }
       // Backend API
       const token = await auth.currentUser?.getIdToken().catch(() => null);
       if (token) {

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../config/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth } from "../config/firebase";
 import { toast } from "sonner";
 import {
   Upload, Check, ArrowLeft, Shield, FileText,
@@ -125,35 +124,36 @@ export default function KybWizard() {
       }
 
 
-      // ── SAVE TO FIRESTORE (cross-browser, real-time, visible to admin) ──────
+      // ── SAVE TO SUPABASE (cross-browser, real-time, visible to admin) ──────
       try {
         const fsUser = auth.currentUser;
         const fsUid      = fsUser?.uid || "local-user-1";
-        const fsEmail    = fsUser?.email || "unknown@user.com";
-        const fsName     = fsUser?.displayName || fsEmail.split("@")[0];
-        const fsCompany  = `${fsName} Company`;
 
-        // Store base64 only if small enough for Firestore (<= 900KB)
+        // Store base64 only if small enough for Supabase
         const docUrlToStore = finalFileUrl && finalFileUrl.length < 900_000 ? finalFileUrl : null;
-
-        await setDoc(doc(db, "kyb_submissions", fsUid), {
-          id: fsUid,
-          userEmail: fsEmail,
-          userName: fsName,
-          companyName: fsCompany,
-          documentName: certFile.name,
-          documentUrl: docUrlToStore,
-          kybStatus: "SUBMITTED",
-          mobile: fsUser?.phoneNumber || "Not Provided",
-          country: "India",
-          gst: null,
-          iec: null,
-          submittedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        console.log("✓ KYB submission saved to Firestore");
+        
+        // Use backend to ensure all tables (users, companies) get updated if possible
+        // But also write directly to Supabase as fallback for Vercel deployments where API_BASE is localhost
+        try {
+          const { supabase } = await import('../config/supabase');
+          
+          await supabase
+            .from('users')
+            .update({
+              kybStatus: 'SUBMITTED',
+              documentName: certFile.name,
+              documentUrl: docUrlToStore,
+              submittedAt: new Date().toISOString()
+            })
+            .eq('firebase_uid', fsUid);
+            
+          console.log("✓ KYB submission saved to Supabase (direct)");
+        } catch (supabaseErr) {
+          console.warn("Supabase direct write notice:", supabaseErr);
+        }
+        
       } catch (fsErr) {
-        console.warn("Firestore write notice (non-fatal):", fsErr);
+        console.warn("Supabase logic error:", fsErr);
       }
 
       // Save locally too (for same-browser view)
