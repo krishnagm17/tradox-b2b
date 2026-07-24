@@ -254,16 +254,36 @@ export default function AdminKyb() {
     }
   };
 
-  const [previewDoc, setPreviewDoc] = useState(null);
-
   const handleViewDocument = (sub) => {
     let rawUrl = sub.documentUrl || localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
     if (!rawUrl || rawUrl.length < 10) {
+      // Clean fallback sample Base64 PDF
       rawUrl = "data:application/pdf;base64,JVBERi0xLjQKJSDl4uXmA%2B...";
     }
+
+    let finalViewerUrl = rawUrl;
+    if (rawUrl.startsWith("data:")) {
+      try {
+        const arr = rawUrl.split(",");
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : "application/pdf";
+        const bstr = atob(arr[1].replace(/\s/g, ""));
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        finalViewerUrl = URL.createObjectURL(blob);
+      } catch (e) {
+        console.error("Notice converting data URL to Blob URL:", e);
+      }
+    }
+
     setPreviewDoc({
       name: sub.documentName || "letter1.pdf",
-      url: rawUrl,
+      url: finalViewerUrl,
+      rawUrl: rawUrl,
       company: sub.companyName,
       applicant: sub.userName
     });
