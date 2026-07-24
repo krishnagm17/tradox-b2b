@@ -146,6 +146,11 @@ def verify_admin(token_data: dict):
     if email in SUPER_OWNERS:
         return {"id": "super", "role": "OWNER", "email": email, "firebase_uid": uid}
         
+    if email:
+        admin_check = supabase.table("admin_users").select("*").eq("email", email.strip().lower()).execute()
+        if admin_check.data:
+            return admin_check.data[0]
+            
     admin_check = supabase.table("admin_users").select("*").eq("firebase_uid", uid).execute()
     if not admin_check.data:
         raise HTTPException(status_code=403, detail="Admin access required")
