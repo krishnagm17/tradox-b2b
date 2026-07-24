@@ -138,61 +138,61 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-24 bg-gradient-to-b from-slate-200 via-slate-100 to-emerald-100/50 border-b border-slate-300 overflow-hidden">
-        {/* Decorative Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000008_1px,transparent_1px),linear-gradient(to_bottom,#00000008_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/15 blur-[120px] rounded-full pointer-events-none" />
+      <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-24 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white border-b border-slate-800 overflow-hidden">
+        {/* Decorative Radial Lighting & Grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-emerald-500/20 blur-[140px] rounded-full pointer-events-none" />
 
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold tracking-wide uppercase mb-8 shadow-sm">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/80 border border-emerald-700/80 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-8 shadow-lg shadow-emerald-950/50">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
             Verified B2B Wholesale Trading Platform
           </div>
           
           {/* Main Headline */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-heading font-extrabold text-slate-900 tracking-tight leading-[1.1] mb-6 max-w-4xl mx-auto">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-heading font-extrabold text-white tracking-tight leading-[1.1] mb-6 max-w-4xl mx-auto">
             Buy & Sell Bulk Commodities <br className="hidden sm:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-800">Directly Worldwide.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500">Directly Worldwide.</span>
           </h1>
           
           {/* Plain English Subtitle */}
-          <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
-            TradoxB2B connects wholesale buyers, importers, and verified exporters. Trade bulk goods like <strong className="text-slate-900 font-semibold">Rice, Wheat, Steel, Sugar, and Gold</strong> with zero middleman fees and bank-grade payment security.
+          <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
+            TradoxB2B connects wholesale buyers, importers, and verified exporters. Trade bulk goods like <strong className="text-white font-semibold">Rice, Wheat, Steel, Sugar, and Gold</strong> with zero middleman fees and bank-grade payment security.
           </p>
           
           {/* Intuitive Call-to-Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto mb-16">
             <button 
               onClick={() => navigate("/live-board")} 
-              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 text-base font-bold rounded-xl transition-all shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 hover:scale-105 active:scale-95"
+              className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-4 text-base font-bold rounded-xl transition-all shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 hover:scale-105 active:scale-95"
             >
               I Want to Buy
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-5 h-5 text-slate-950" />
             </button>
             <button 
               onClick={() => navigate("/register")} 
-              className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 hover:border-slate-400 px-8 py-4 text-base font-bold rounded-xl transition-all shadow-md"
+              className="w-full sm:w-auto bg-slate-800/90 hover:bg-slate-700 text-white border border-slate-700 px-8 py-4 text-base font-bold rounded-xl transition-all shadow-md"
             >
               I Want to Sell
             </button>
           </div>
 
           {/* Social Proof Bar — Real Database Numbers */}
-          <div className="bg-white/95 backdrop-blur-md border border-slate-300/80 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl mx-auto">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="flex flex-col items-center">
-                <span className="text-3xl font-heading font-extrabold text-slate-900">{stats.companies_count}</span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Verified Businesses</span>
+                <span className="text-3xl sm:text-4xl font-heading font-extrabold text-white">{stats.companies_count}</span>
+                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">Verified Businesses</span>
               </div>
-              <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-200 py-4 sm:py-0">
-                <span className="text-3xl font-heading font-extrabold text-slate-900">{stats.total_lots}</span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Active Trade Lots</span>
+              <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-800 py-4 sm:py-0">
+                <span className="text-3xl sm:text-4xl font-heading font-extrabold text-white">{stats.total_lots}</span>
+                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">Active Trade Lots</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-3xl font-heading font-extrabold text-slate-900">{stats.users_count}</span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Registered Traders</span>
+                <span className="text-3xl sm:text-4xl font-heading font-extrabold text-white">{stats.users_count}</span>
+                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">Registered Traders</span>
               </div>
             </div>
           </div>
