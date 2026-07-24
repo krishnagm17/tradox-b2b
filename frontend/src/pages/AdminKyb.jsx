@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../config/firebase";
+import { auth, db } from "../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { collection, getDocs, doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import {
   Shield, CheckCircle2, XCircle, Clock, ArrowLeft,
@@ -49,107 +50,87 @@ export default function AdminKyb() {
   });
   const [newAdminEmail, setNewAdminEmail] = useState("");
 
-  // ─── Load submissions ──────────────────────────────────────────────────────
+  // ─── Load submissions (Firestore-first) ────────────────────────────────────
   const fetchSubmissions = useCallback(async (user, showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true); else setLoading(true);
-
     try {
-      const latestDoc  = localStorage.getItem("kyb_submitted_doc");
-      const latestUrl  = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
+      const latestDoc    = localStorage.getItem("kyb_submitted_doc");
+      const latestUrl    = localStorage.getItem("kyb_submitted_url") || localStorage.getItem("kyb_pdf_data");
       const latestStatus = localStorage.getItem("kyb_status") || "SUBMITTED";
 
-      // STEP 1: Sync current user's latest submission into admin store
-      if (latestDoc) {
-        const uid       = user?.uid || "local-user-1";
-        const userEmail = user?.email || "krishnametri223344@gmail.com";
-        const userName  = user?.displayName || userEmail.split("@")[0];
-        const store     = loadAdminStore();
-        const idx       = store.findIndex(e => e.id === uid || e.userEmail === userEmail);
-        const entry = {
-          id: uid, userEmail, userName,
-          companyName: store[idx]?.companyName || `${userName} Company`,
-          documentName: latestDoc,
-          documentUrl: latestUrl || store[idx]?.documentUrl || null,
-          kybStatus: latestStatus,
-          submittedAt: store[idx]?.submittedAt || new Date().toISOString(),
-          mobile: user?.phoneNumber || store[idx]?.mobile || "+917777777777",
-          country: store[idx]?.country || "India",
-          gst: store[idx]?.gst || null,
-          iec: store[idx]?.iec || null,
-        };
-        if (idx >= 0) store[idx] = entry; else store.unshift(entry);
-        saveAdminStore(store);
+      // STEP 1: Read ALL submissions from Firestore (works across all browsers)
+      const fsMap = new Map(); // uid -> submission
+      try {
+        const snapshot = await getDocs(collection(db, "kyb_submissions"));
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          fsMap.set(docSnap.id, {
+            id: docSnap.id,
+            companyName:  data.companyName  || "Registered Company",
+            userEmail:    data.userEmail    || "—",
+            userName:     data.userName     || data.userEmail?.split("@")[0] || "—",
+            mobile:       data.mobile       || "Not Provided",
+            submittedAt:  data.submittedAt?.toDate?.()?.toISOString() || data.submittedAt || new Date().toISOString(),
+            kybStatus:    data.kybStatus    || "SUBMITTED",
+            documentName: data.documentName || "Certificate.pdf",
+            documentUrl:  data.documentUrl  || null,
+            country:      data.country      || "India",
+            gst:          data.gst          || null,
+            iec:          data.iec          || null,
+            rejectReason: data.rejectReason || null,
+          });
+        });
+      } catch (fsErr) {
+        console.warn("Firestore read notice (non-fatal):", fsErr);
       }
 
-      // STEP 2: Load local store
-      const localStore = loadAdminStore();
-      const merged = [...localStore];
-      const localIds    = new Set(merged.map(i => i.id));
-      const localEmails = new Set(merged.map(i => i.userEmail?.toLowerCase()));
-
-      // STEP 3: Fetch backend
-      try {
-        const token = await user?.getIdToken().catch(() => null);
-        if (token) {
-          const res = await fetch(`${API_BASE}/api/admin/kyb`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }).catch(() => null);
-          if (res?.ok) {
-            const rawData = await res.json().catch(() => []);
-            if (Array.isArray(rawData)) {
-              for (const item of rawData) {
-                const id    = item.id || item.userId;
-                const email = (item.userEmail || "").toLowerCase();
-                if (!localIds.has(id) && !localEmails.has(email)) {
-                  merged.push({
-                    id: id || email,
-                    companyName: item.companyName || "Registered Company",
-                    userEmail: item.userEmail || "—",
-                    userName: item.userName || item.userEmail?.split("@")[0] || "—",
-                    mobile: item.mobile || "Not Provided",
-                    submittedAt: item.submittedAt || new Date().toISOString(),
-                    kybStatus: item.kybStatus || "SUBMITTED",
-                    documentName: item.documentName || "Certificate.pdf",
-                    documentUrl: item.documentUrl || null,
-                    country: item.country || "India",
-                    gst: item.gst || null,
-                    iec: item.iec || null,
-                  });
-                } else {
-                  // Enrich local entry with backend doc URL if missing
-                  const localIdx = merged.findIndex(m => m.id === id || m.userEmail?.toLowerCase() === email);
-                  if (localIdx >= 0 && !merged[localIdx].documentUrl && item.documentUrl) {
-                    merged[localIdx] = { ...merged[localIdx], documentUrl: item.documentUrl };
-                  }
-                  // Update status from backend if it's been changed by admin
-                  if (localIdx >= 0 && item.kybStatus && item.kybStatus !== "SUBMITTED") {
-                    merged[localIdx] = { ...merged[localIdx], kybStatus: item.kybStatus };
-                  }
-                }
-              }
-            }
-          }
+      // STEP 2: Enrich Firestore data with local document URLs (for same-browser preview)
+      if (user?.uid && fsMap.has(user.uid) && latestUrl) {
+        const fsEntry = fsMap.get(user.uid);
+        if (!fsEntry.documentUrl) {
+          fsMap.set(user.uid, { ...fsEntry, documentUrl: latestUrl, documentName: latestDoc || fsEntry.documentName });
         }
-      } catch (fetchErr) { /* silently fail, use local store */ }
+      }
 
-      // STEP 4: Fallback if empty
-      if (merged.length === 0) {
+      // STEP 3: Add any local store entries not yet in Firestore
+      const localStore = loadAdminStore();
+      for (const local of localStore) {
+        if (!fsMap.has(local.id)) {
+          fsMap.set(local.id, {
+            ...local,
+            kybStatus: latestStatus || local.kybStatus || "SUBMITTED",
+          });
+        }
+      }
+
+      // STEP 4: If current user submitted locally but not in Firestore yet, add them
+      if (latestDoc && user?.uid && !fsMap.has(user.uid)) {
         const uEmail = user?.email || "krishnametri223344@gmail.com";
-        const uName  = user?.displayName || "Krishna G M";
-        merged.push({
-          id: user?.uid || "local-user-1",
+        const uName  = user?.displayName || uEmail.split("@")[0];
+        fsMap.set(user.uid, {
+          id: user.uid,
           companyName: `${uName} Company`,
           userEmail: uEmail, userName: uName,
-          mobile: "+917777777777",
+          mobile: user?.phoneNumber || "+917777777777",
           submittedAt: new Date().toISOString(),
           kybStatus: latestStatus,
-          documentName: latestDoc || "letter1.pdf",
+          documentName: latestDoc,
           documentUrl: latestUrl || null,
           country: "India", gst: null, iec: null,
         });
       }
 
-      setSubmissions(merged);
+      const merged = Array.from(fsMap.values());
+      // Sort: pending first, then by date
+      merged.sort((a, b) => {
+        const order = { SUBMITTED: 0, PENDING: 0, VERIFIED: 1, REJECTED: 2 };
+        const oa = order[a.kybStatus] ?? 1;
+        const ob = order[b.kybStatus] ?? 1;
+        if (oa !== ob) return oa - ob;
+        return new Date(b.submittedAt) - new Date(a.submittedAt);
+      });
+
+      setSubmissions(merged.length > 0 ? merged : loadAdminStore());
     } catch (err) {
       console.error("KYB fetch error:", err);
       setSubmissions(loadAdminStore());
@@ -179,18 +160,21 @@ export default function AdminKyb() {
   const handleApprove = async (userId, companyName) => {
     setActionLoading(prev => ({ ...prev, [userId]: "approve" }));
     try {
-      // Optimistic update — move card immediately
-      setSubmissions(prev => prev.map(s =>
-        s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s
-      ));
-      // Persist locally
-      const store = loadAdminStore();
-      saveAdminStore(store.map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s));
-      // Update kyb_status if it's the current user's own record
+      // Optimistic update
+      setSubmissions(prev => prev.map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s));
+      saveAdminStore(loadAdminStore().map(s => s.id === userId ? { ...s, kybStatus: "VERIFIED" } : s));
       if (userId === currentUser?.uid || userId === "local-user-1") {
         localStorage.setItem("kyb_status", "VERIFIED");
       }
-      // Call backend
+      // Write to Firestore
+      try {
+        await updateDoc(doc(db, "kyb_submissions", userId), {
+          kybStatus: "VERIFIED",
+          approvedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (fsErr) { console.warn("Firestore approve notice:", fsErr); }
+      // Backend API
       const token = await auth.currentUser?.getIdToken().catch(() => null);
       if (token) {
         await fetch(`${API_BASE}/api/admin/kyb/${userId}/approve`, {
@@ -199,9 +183,10 @@ export default function AdminKyb() {
         }).catch(() => {});
       }
       toast.success(`✓ ${companyName} approved & verified!`);
-      setActiveTab("VERIFIED"); // Switch to Approved tab so user sees it moved
+      setActiveTab("VERIFIED");
     } catch (err) {
       toast.success(`✓ ${companyName} approved!`);
+      setActiveTab("VERIFIED");
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: null }));
     }
@@ -212,18 +197,23 @@ export default function AdminKyb() {
     const reason = rejectReasons[userId] || "Documents could not be verified.";
     setActionLoading(prev => ({ ...prev, [userId]: "reject" }));
     try {
-      // Optimistic update — move card immediately
-      setSubmissions(prev => prev.map(s =>
-        s.id === userId ? { ...s, kybStatus: "REJECTED", rejectReason: reason } : s
-      ));
-      // Persist locally
-      const store = loadAdminStore();
-      saveAdminStore(store.map(s => s.id === userId ? { ...s, kybStatus: "REJECTED" } : s));
+      // Optimistic update
+      setSubmissions(prev => prev.map(s => s.id === userId ? { ...s, kybStatus: "REJECTED", rejectReason: reason } : s));
+      saveAdminStore(loadAdminStore().map(s => s.id === userId ? { ...s, kybStatus: "REJECTED" } : s));
       if (userId === currentUser?.uid || userId === "local-user-1") {
         localStorage.setItem("kyb_status", "REJECTED");
         localStorage.setItem("kyb_reject_reason", reason);
       }
-      // Call backend
+      // Write to Firestore
+      try {
+        await updateDoc(doc(db, "kyb_submissions", userId), {
+          kybStatus: "REJECTED",
+          rejectReason: reason,
+          rejectedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (fsErr) { console.warn("Firestore reject notice:", fsErr); }
+      // Backend API
       const token = await auth.currentUser?.getIdToken().catch(() => null);
       if (token) {
         await fetch(`${API_BASE}/api/admin/kyb/${userId}/reject`, {
@@ -233,9 +223,10 @@ export default function AdminKyb() {
         }).catch(() => {});
       }
       toast.error(`✗ ${companyName} rejected.`);
-      setActiveTab("REJECTED"); // Switch to Rejected tab
+      setActiveTab("REJECTED");
     } catch (err) {
       toast.error(`✗ ${companyName} rejected.`);
+      setActiveTab("REJECTED");
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: null }));
     }

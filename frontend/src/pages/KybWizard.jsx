@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../config/firebase";
+import { auth, db } from "../config/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import {
   Upload, Check, ArrowLeft, Shield, FileText,
@@ -124,37 +125,60 @@ export default function KybWizard() {
       }
 
 
-      // Save submission state locally with full data URL
+      // ── SAVE TO FIRESTORE (cross-browser, real-time, visible to admin) ──────
+      try {
+        const fsUser = auth.currentUser;
+        const fsUid      = fsUser?.uid || "local-user-1";
+        const fsEmail    = fsUser?.email || "unknown@user.com";
+        const fsName     = fsUser?.displayName || fsEmail.split("@")[0];
+        const fsCompany  = `${fsName} Company`;
+
+        // Store base64 only if small enough for Firestore (<= 900KB)
+        const docUrlToStore = finalFileUrl && finalFileUrl.length < 900_000 ? finalFileUrl : null;
+
+        await setDoc(doc(db, "kyb_submissions", fsUid), {
+          id: fsUid,
+          userEmail: fsEmail,
+          userName: fsName,
+          companyName: fsCompany,
+          documentName: certFile.name,
+          documentUrl: docUrlToStore,
+          kybStatus: "SUBMITTED",
+          mobile: fsUser?.phoneNumber || "Not Provided",
+          country: "India",
+          gst: null,
+          iec: null,
+          submittedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        console.log("✓ KYB submission saved to Firestore");
+      } catch (fsErr) {
+        console.warn("Firestore write notice (non-fatal):", fsErr);
+      }
+
+      // Save locally too (for same-browser view)
       localStorage.setItem("kyb_submitted_doc", certFile.name);
       if (finalFileUrl) {
         localStorage.setItem("kyb_submitted_url", finalFileUrl);
-        // Also store in shared admin store so admin panel can access from same browser
         try {
           const user = auth.currentUser;
           const adminStore = JSON.parse(localStorage.getItem("kyb_admin_store") || "[]");
           const uid = user?.uid || "local-user-1";
           const userEmail = user?.email || "unknown@user.com";
           const userName = user?.displayName || userEmail.split("@")[0];
-          // Remove existing entry for same user
           const filtered = adminStore.filter(e => e.id !== uid && e.userEmail !== userEmail);
           filtered.unshift({
-            id: uid,
-            userEmail: userEmail,
-            userName: userName,
+            id: uid, userEmail, userName,
             companyName: `${userName} Company`,
             documentName: certFile.name,
             documentUrl: finalFileUrl,
             kybStatus: "SUBMITTED",
             submittedAt: new Date().toISOString(),
             mobile: user?.phoneNumber || "+917777777777",
-            country: "India",
-            gst: null,
-            iec: null
+            country: "India", gst: null, iec: null
           });
           localStorage.setItem("kyb_admin_store", JSON.stringify(filtered));
-        } catch (storeErr) {
-          console.warn("Admin store save notice:", storeErr);
-        }
+        } catch { /* ignore */ }
       }
       localStorage.setItem("kyb_status", "SUBMITTED");
       setSubmitted(true);
