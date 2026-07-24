@@ -326,9 +326,11 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
         
-    product = Product(**product_data.model_dump(), companyId=res.data[0]["companyId"], createdBy=token_data.get("uid"))
+    expiresAt = (datetime.datetime.utcnow() + datetime.timedelta(hours=product_data.durationHours)).isoformat() + "Z" if product_data.durationHours else None
     
-    db.table("products").insert({
+    product = Product(**product_data.model_dump(), companyId=res.data[0]["companyId"], createdBy=token_data.get("uid"), expiresAt=expiresAt)
+    
+    insert_data = {
         "id": product.id,
         "companyId": product.companyId,
         "title": product.name,
@@ -339,16 +341,25 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
         "country": product.country,
         "moq": product.moq,
         "createdAt": product.createdAt
-    }).execute()
+    }
+    if expiresAt:
+        insert_data["expiresAt"] = expiresAt
+        
+    db.table("products").insert(insert_data).execute()
     return product
 
 @app.get("/api/products", response_model=List[Product])
 async def get_products():
     db = get_db()
+    now_iso = datetime.datetime.utcnow().isoformat()
+    try:
+        db.table("products").delete().lt("expiresAt", now_iso).execute()
+    except:
+        pass
     res = db.table("products").select("*").execute()
     out = []
     for p in res.data:
-        out.append(Product(id=p["id"], companyId=p["companyId"], createdBy="", category=p.get("category",""), name=p.get("title",""), description=p.get("description"), price=p.get("price",0), quantity=0, country="", moq=p.get("moq",0)))
+        out.append(Product(id=p["id"], companyId=p["companyId"], createdBy="", category=p.get("category",""), name=p.get("title",""), description=p.get("description"), price=p.get("price",0), quantity=0, country="", moq=p.get("moq",0), expiresAt=p.get("expiresAt")))
     return out
 
 @app.get("/api/products/me", response_model=List[Product])
@@ -358,6 +369,13 @@ async def get_my_products(token_data: dict = Depends(verify_token)):
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
     c_id = res.data[0]["companyId"]
+    
+    now_iso = datetime.datetime.utcnow().isoformat()
+    try:
+        db.table("products").delete().lt("expiresAt", now_iso).execute()
+    except:
+        pass
+        
     p_res = db.table("products").select("*").eq("companyId", c_id).execute()
     out = []
     for p in p_res.data:
@@ -371,17 +389,29 @@ async def get_my_products(token_data: dict = Depends(verify_token)):
             price=float(p.get("price", 0)),
             quantity=float(p.get("quantity", 100)),
             country=p.get("country", "India"),
-            moq=float(p.get("moq", 10))
+            moq=float(p.get("moq", 10)),
+            expiresAt=p.get("expiresAt")
         ))
     return out
+
+@app.delete("/api/products/{product_id}")
+async def delete_product(product_id: str, token_data: dict = Depends(verify_token)):
+    db = get_db()
+    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
+    c_id = res.data[0]["companyId"]
+    db.table("products").delete().eq("id", product_id).eq("companyId", c_id).execute()
+    return {"status": "deleted"}
 
 @app.post("/api/rfqs", response_model=RFQ)
 async def create_rfq(rfq_data: RFQCreate, token_data: dict = Depends(verify_token)):
     db = get_db()
     res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
-    rfq = RFQ(**rfq_data.model_dump(), companyId=res.data[0]["companyId"], createdBy=token_data.get("uid"))
     
-    db.table("rfqs").insert({
+    expiresAt = (datetime.datetime.utcnow() + datetime.timedelta(hours=rfq_data.durationHours)).isoformat() + "Z" if rfq_data.durationHours else None
+    
+    rfq = RFQ(**rfq_data.model_dump(), companyId=res.data[0]["companyId"], createdBy=token_data.get("uid"), expiresAt=expiresAt)
+    
+    insert_data = {
         "id": rfq.id,
         "buyerCompanyId": rfq.companyId,
         "title": rfq.product,
@@ -391,7 +421,11 @@ async def create_rfq(rfq_data: RFQCreate, token_data: dict = Depends(verify_toke
         "targetQuantity": rfq.quantity,
         "status": rfq.status,
         "createdAt": rfq.createdAt
-    }).execute()
+    }
+    if expiresAt:
+        insert_data["expiresAt"] = expiresAt
+        
+    db.table("rfqs").insert(insert_data).execute()
     return rfq
 
 @app.get("/api/rfqs/me", response_model=List[RFQ])
@@ -401,6 +435,13 @@ async def get_my_rfqs(token_data: dict = Depends(verify_token)):
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
     c_id = res.data[0]["companyId"]
+    
+    now_iso = datetime.datetime.utcnow().isoformat()
+    try:
+        db.table("rfqs").delete().lt("expiresAt", now_iso).execute()
+    except:
+        pass
+        
     r_res = db.table("rfqs").select("*").eq("buyerCompanyId", c_id).execute()
     out = []
     for r in r_res.data:
@@ -414,17 +455,31 @@ async def get_my_rfqs(token_data: dict = Depends(verify_token)):
             targetPrice=float(r.get("targetPrice")) if r.get("targetPrice") else None,
             destinationCountry=r.get("destinationCountry", "Global"),
             deliveryDate=r.get("deliveryDate", "Immediate"),
-            description=r.get("description")
+            description=r.get("description"),
+            expiresAt=r.get("expiresAt")
         ))
     return out
+
+@app.delete("/api/rfqs/{rfq_id}")
+async def delete_rfq(rfq_id: str, token_data: dict = Depends(verify_token)):
+    db = get_db()
+    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
+    c_id = res.data[0]["companyId"]
+    db.table("rfqs").delete().eq("id", rfq_id).eq("buyerCompanyId", c_id).execute()
+    return {"status": "deleted"}
 
 @app.get("/api/rfqs", response_model=List[RFQ])
 async def get_rfqs():
     db = get_db()
+    now_iso = datetime.datetime.utcnow().isoformat()
+    try:
+        db.table("rfqs").delete().lt("expiresAt", now_iso).execute()
+    except:
+        pass
     res = db.table("rfqs").select("*").execute()
     out = []
     for r in res.data:
-        out.append(RFQ(id=r["id"], companyId=r["buyerCompanyId"], createdBy="", product=r.get("title",""), category=r.get("category",""), quantity=r.get("targetQuantity",0), targetPrice=r.get("targetPrice"), destinationCountry="", deliveryDate="", description=r.get("description")))
+        out.append(RFQ(id=r["id"], companyId=r["buyerCompanyId"], createdBy="", product=r.get("title",""), category=r.get("category",""), quantity=r.get("targetQuantity",0), targetPrice=r.get("targetPrice"), destinationCountry="", deliveryDate="", description=r.get("description"), expiresAt=r.get("expiresAt")))
     return out
 
 @app.post("/api/negotiations/rooms", response_model=NegotiationRoom)

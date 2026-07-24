@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Package, FileText, X, Loader2, ArrowRight, TrendingUp } from "lucide-react";
+import { Plus, Search, Package, FileText, X, Loader2, ArrowRight, TrendingUp, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { onAuthStateChanged } from "firebase/auth";
 import Sidebar from "../components/Sidebar";
@@ -21,14 +21,13 @@ export default function CompanyDashboard() {
   // Tab State
   const [activeTab, setActiveTab] = useState("sales"); // 'sales' or 'purchases'
 
-  // Forms State
   const [rfqForm, setRfqForm] = useState({
     product: "", category: "Agriculture", quantity: "", unit: "MT",
-    destinationCountry: "", deliveryDate: "", targetPrice: "", description: ""
+    destinationCountry: "", deliveryDate: "", targetPrice: "", description: "", durationHours: ""
   });
   const [productForm, setProductForm] = useState({
     name: "", category: "Agriculture", quantity: "", unit: "MT",
-    price: "", currency: "USD", moq: "", country: "", deliveryTerms: "FOB", description: ""
+    price: "", currency: "USD", moq: "", country: "", deliveryTerms: "FOB", description: "", durationHours: ""
   });
 
   useEffect(() => {
@@ -90,14 +89,15 @@ export default function CompanyDashboard() {
         body: JSON.stringify({
           ...rfqForm,
           quantity: parseFloat(rfqForm.quantity),
-          targetPrice: rfqForm.targetPrice ? parseFloat(rfqForm.targetPrice) : null
+          targetPrice: rfqForm.targetPrice ? parseFloat(rfqForm.targetPrice) : null,
+          durationHours: rfqForm.durationHours ? parseInt(rfqForm.durationHours) : null
         })
       });
       if (res.ok) {
         const newRfq = await res.json();
         setRfqs([newRfq, ...rfqs]);
         setShowRfqModal(false);
-        setRfqForm({product: "", category: "Agriculture", quantity: "", unit: "MT", destinationCountry: "", deliveryDate: "", targetPrice: "", description: ""});
+        setRfqForm({product: "", category: "Agriculture", quantity: "", unit: "MT", destinationCountry: "", deliveryDate: "", targetPrice: "", description: "", durationHours: ""});
         toast.success("RFQ created successfully!", { id: toastId });
       } else {
         toast.error("Failed to create RFQ. Please try again.", { id: toastId });
@@ -126,14 +126,15 @@ export default function CompanyDashboard() {
           ...productForm,
           price: parseFloat(productForm.price),
           quantity: parseFloat(productForm.quantity),
-          moq: parseFloat(productForm.moq)
+          moq: parseFloat(productForm.moq),
+          durationHours: productForm.durationHours ? parseInt(productForm.durationHours) : null
         })
       });
       if (res.ok) {
         const newProduct = await res.json();
         setProducts([newProduct, ...products]);
         setShowProductModal(false);
-        setProductForm({name: "", category: "Agriculture", quantity: "", unit: "MT", price: "", currency: "USD", moq: "", country: "", deliveryTerms: "FOB", description: ""});
+        setProductForm({name: "", category: "Agriculture", quantity: "", unit: "MT", price: "", currency: "USD", moq: "", country: "", deliveryTerms: "FOB", description: "", durationHours: ""});
         toast.success("Product listed successfully!", { id: toastId });
       } else {
         toast.error("Failed to list product.", { id: toastId });
@@ -143,6 +144,46 @@ export default function CompanyDashboard() {
       toast.error("An error occurred while listing the product.", { id: toastId });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    const toastId = toast.loading("Deleting product...");
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/products/${productId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setProducts(products.filter(p => p.id !== productId));
+        toast.success("Product deleted successfully.", { id: toastId });
+      } else {
+        toast.error("Failed to delete product.", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Error deleting product.", { id: toastId });
+    }
+  };
+
+  const handleDeleteRfq = async (rfqId) => {
+    if (!window.confirm("Are you sure you want to delete this RFQ?")) return;
+    const toastId = toast.loading("Deleting RFQ...");
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/rfqs/${rfqId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setRfqs(rfqs.filter(r => r.id !== rfqId));
+        toast.success("RFQ deleted successfully.", { id: toastId });
+      } else {
+        toast.error("Failed to delete RFQ.", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Error deleting RFQ.", { id: toastId });
     }
   };
 
@@ -262,7 +303,12 @@ export default function CompanyDashboard() {
                               {prod.category} <span className="w-1 h-1 rounded-full bg-slate-300"></span> {prod.country}
                             </p>
                           </div>
-                          <span className="text-[0.65rem] font-mono px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-md uppercase tracking-wider font-semibold shadow-sm">{prod.status || "ACTIVE"}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[0.65rem] font-mono px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-md uppercase tracking-wider font-semibold shadow-sm">{prod.status || "ACTIVE"}</span>
+                            <button onClick={() => handleDeleteProduct(prod.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Delete Product">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm mt-6 border-t border-slate-100 pt-4">
                           <div>
@@ -347,8 +393,13 @@ export default function CompanyDashboard() {
                               <div className="text-sm text-slate-600">{rfq.destinationCountry}</div>
                             </td>
                             <td className="py-4 px-6 text-center">
-                              <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-md bg-amber-50 border border-amber-100 text-amber-600 text-[0.65rem] font-mono uppercase tracking-wider font-semibold shadow-sm">
-                                 {rfq.status || "PENDING"}
+                              <div className="flex items-center justify-center gap-3">
+                                <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-md bg-amber-50 border border-amber-100 text-amber-600 text-[0.65rem] font-mono uppercase tracking-wider font-semibold shadow-sm">
+                                   {rfq.status || "PENDING"}
+                                </div>
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteRfq(rfq.id); }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Delete RFQ">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -399,6 +450,16 @@ export default function CompanyDashboard() {
                   <div>
                     <label className="block text-[0.7rem] font-semibold text-brand-navy uppercase tracking-wider mb-2">Delivery Date</label>
                     <input type="text" required className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm rounded-lg outline-none transition-all shadow-sm" value={rfqForm.deliveryDate} onChange={e => setRfqForm({...rfqForm, deliveryDate: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[0.7rem] font-semibold text-brand-navy uppercase tracking-wider mb-2">Listing Duration</label>
+                    <select className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm rounded-lg outline-none transition-all shadow-sm" value={rfqForm.durationHours} onChange={e => setRfqForm({...rfqForm, durationHours: e.target.value})}>
+                      <option value="">Never Expires</option>
+                      <option value="12">12 Hours</option>
+                      <option value="24">24 Hours</option>
+                      <option value="72">3 Days</option>
+                      <option value="168">7 Days</option>
+                    </select>
                   </div>
                 </div>
                 <Button type="submit" disabled={loading} className="w-full h-12 mt-4 text-sm font-semibold flex items-center justify-center">
@@ -455,6 +516,16 @@ export default function CompanyDashboard() {
                   <div>
                     <label className="block text-[0.7rem] font-semibold text-brand-navy uppercase tracking-wider mb-2">Minimum Order Qty (MOQ) *</label>
                     <input type="number" required className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm rounded-lg outline-none transition-all shadow-sm" value={productForm.moq} onChange={e => setProductForm({...productForm, moq: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[0.7rem] font-semibold text-brand-navy uppercase tracking-wider mb-2">Listing Duration</label>
+                    <select className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm rounded-lg outline-none transition-all shadow-sm" value={productForm.durationHours} onChange={e => setProductForm({...productForm, durationHours: e.target.value})}>
+                      <option value="">Never Expires</option>
+                      <option value="12">12 Hours</option>
+                      <option value="24">24 Hours</option>
+                      <option value="72">3 Days</option>
+                      <option value="168">7 Days</option>
+                    </select>
                   </div>
                 </div>
                 <Button type="submit" disabled={loading} className="w-full h-12 mt-4 text-sm font-semibold flex items-center justify-center">

@@ -65,6 +65,7 @@ class Product(BaseModel):
     moq: float
     deliveryTerms: str = "FOB"
     status: str = "LIVE"
+    expiresAt: Optional[str] = None
     createdAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
     updatedAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
 
@@ -80,6 +81,7 @@ class ProductCreate(BaseModel):
     hsCode: Optional[str] = None
     moq: float
     deliveryTerms: str = "FOB"
+    durationHours: Optional[int] = None
 
 class RFQ(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -95,6 +97,7 @@ class RFQ(BaseModel):
     description: Optional[str] = None
     attachments: List[str] = []
     status: str = "OPEN"
+    expiresAt: Optional[str] = None
     createdAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
     updatedAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
 
@@ -107,6 +110,7 @@ class RFQCreate(BaseModel):
     destinationCountry: str
     deliveryDate: str
     description: Optional[str] = None
+    durationHours: Optional[int] = None
 
 class Quote(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
