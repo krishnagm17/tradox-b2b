@@ -99,19 +99,12 @@ export default function Register() {
         return { ok: false };
       });
 
-      if (res.ok) {
-        localStorage.setItem("step3_complete", "true");
-        toast.success("Welcome back! Redirecting to dashboard...");
-        navigate("/dashboard");
-        return;
-      }
+      localStorage.setItem("step3_complete", "true");
+      if (user.email) localStorage.setItem(`registered_${user.email}`, "true");
 
-      setFullName(user.displayName || "");
-      setEmail(user.email || "");
-      setEmailVerified(true);
-      setIsGoogleAuth(true);
-      toast.info("Google account verified! Please enter your mobile number to complete verification.");
-      setStep(2);
+      toast.success("Welcome back! Redirecting to website...");
+      navigate("/dashboard");
+      return;
     } catch (err) {
       console.error("Google Sign-In Error:", err);
       if (err.code === "auth/account-exists-with-different-credential") {

@@ -220,6 +220,7 @@ async def get_me(token_data: dict = Depends(verify_token)):
     db = get_db()
     uid = token_data.get("uid")
     user_email = token_data.get("email", "").strip().lower()
+    user_name = token_data.get("name") or (user_email.split("@")[0].capitalize() if user_email else "Trader")
     
     res = db.table("users").select("*").eq("firebase_uid", uid).execute()
     if not res.data and user_email:
@@ -231,8 +232,24 @@ async def get_me(token_data: dict = Depends(verify_token)):
                 print("Notice linking firebase_uid:", e)
                 
     if not res.data:
-        raise HTTPException(status_code=404, detail="User not found")
-    u = res.data[0]
+        role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else "TRADER"
+        u = {
+            "id": uid,
+            "firebase_uid": uid,
+            "companyId": "comp_default",
+            "name": user_name,
+            "email": user_email or "trader@tradoxb2b.com",
+            "phone": None,
+            "role": role,
+            "kybStatus": "PENDING",
+            "companyName": None
+        }
+        try:
+            db.table("users").insert(u).execute()
+        except Exception as e:
+            pass
+    else:
+        u = res.data[0]
     
     comp_name = u.get("companyName") or u.get("company_name")
     kyb_status = u.get("kybStatus", "PENDING")
