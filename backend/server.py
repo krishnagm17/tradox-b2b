@@ -169,12 +169,15 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
             kybStatus=existing_u.get("kybStatus", "PENDING")
         )
         
+    user_role = "PLATFORM OWNER" if user_data.email and user_data.email.strip().lower() in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else "TRADER"
+    
     user = User(
         firebase_uid=firebase_uid,
         companyId=company.id,
-        name=user_data.name,
+        name=user_data.name or "Trader",
         email=user_data.email,
-        phone=user_data.phone
+        phone=user_data.phone,
+        role=user_role
     )
     
     try:
@@ -182,6 +185,7 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
             "id": user.id,
             "firebase_uid": user.firebase_uid,
             "email": user.email,
+            "name": user.name,
             "role": user.role,
             "companyId": user.companyId,
             "kybStatus": "PENDING",
@@ -196,7 +200,7 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
 async def get_me(token_data: dict = Depends(verify_token)):
     db = get_db()
     uid = token_data.get("uid")
-    user_email = token_data.get("email")
+    user_email = token_data.get("email", "").strip().lower()
     
     res = db.table("users").select("*").eq("firebase_uid", uid).execute()
     if not res.data and user_email:
@@ -224,14 +228,16 @@ async def get_me(token_data: dict = Depends(verify_token)):
         except Exception as e:
             print("Notice reading company in get_me:", e)
             
+    role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else (u.get("role") if u.get("role") != "ADMIN" else "TRADER")
+
     return User(
         id=u["id"],
         firebase_uid=u["firebase_uid"],
         companyId=u["companyId"],
-        name=u.get("name") or "User",
+        name=u.get("name") or token_data.get("name") or "Trader",
         email=u["email"],
         phone=u.get("phone"),
-        role=u.get("role", "TRADER"),
+        role=role,
         kybStatus=kyb_status,
         companyName=comp_name,
         company_name=comp_name

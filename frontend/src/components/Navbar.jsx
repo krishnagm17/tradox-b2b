@@ -77,10 +77,17 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
     }
   };
 
-  const getInitials = (name, email) => {
-    if (name) return name.charAt(0).toUpperCase();
-    if (email) return email.charAt(0).toUpperCase();
-    return "U";
+  const getInitials = () => {
+    const displayName = dbUser?.name || dbUser?.full_name || user?.displayName;
+    if (displayName && displayName.trim()) {
+      const parts = displayName.trim().split(" ");
+      if (parts.length >= 2) {
+        return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+      }
+      return parts[0].charAt(0).toUpperCase();
+    }
+    if (user?.email) return user.email.charAt(0).toUpperCase();
+    return "T";
   };
 
   const toggleCommodity = (commodity) => {
@@ -194,16 +201,17 @@ export default function Navbar({ isFixed = false, centerContent = null, bgColor 
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-emerald-500 bg-emerald-600/20 hover:bg-emerald-600/30 transition-colors focus:outline-none shadow-sm"
               >
-                <span className="text-emerald-400 font-bold text-sm font-heading">{getInitials(dbUser?.full_name, user.email)}</span>
+                <span className="text-emerald-400 font-bold text-sm font-heading">{getInitials()}</span>
               </button>
 
               {/* Dropdown Menu */}
               {showDropdown && (
                 <div className="absolute right-0 mt-3 w-64 bg-slate-900 text-slate-100 border border-slate-700 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 overflow-hidden">
                   <div className="p-4 border-b border-slate-800 bg-slate-950/60">
-                    <p className="text-sm font-bold text-white truncate mb-1">{user.email}</p>
-                    <span className="text-[0.65rem] font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full inline-block">
-                      {dbUser ? (dbUser.role || "TRADER") : "TRADER"}
+                    <p className="text-sm font-bold text-white truncate mb-0.5">{dbUser?.name || user?.displayName || "Trader"}</p>
+                    <p className="text-xs text-slate-400 truncate mb-2">{user?.email}</p>
+                    <span className="text-[0.65rem] font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full inline-block uppercase">
+                      {dbUser?.role === "PLATFORM OWNER" ? "PLATFORM OWNER" : "TRADER"}
                     </span>
                   </div>
                   

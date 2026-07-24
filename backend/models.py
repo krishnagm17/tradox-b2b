@@ -27,7 +27,7 @@ class User(BaseModel):
     name: str
     email: str
     phone: Optional[str] = None
-    role: str = "ADMIN" # ADMIN, MEMBER
+    role: str = "TRADER" # TRADER, PLATFORM OWNER
     kybStatus: str = "PENDING"
     companyName: Optional[str] = None
     company_name: Optional[str] = None
