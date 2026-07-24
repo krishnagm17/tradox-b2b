@@ -40,6 +40,9 @@ export default function Login() {
       const token = await user.getIdToken();
       const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
         headers: { "Authorization": `Bearer ${token}` }
+      }).catch(err => {
+        console.warn("Notice: Backend API unreachable during login check:", err);
+        return { ok: false };
       });
 
       if (res.ok) {

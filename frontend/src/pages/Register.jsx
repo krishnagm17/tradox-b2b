@@ -94,6 +94,9 @@ export default function Register() {
 
       const res = await fetch(`${API_BASE}/api/users/me`, {
         headers: { Authorization: `Bearer ${token}` }
+      }).catch(err => {
+        console.warn("Notice: Backend API unreachable during registration check:", err);
+        return { ok: false };
       });
 
       if (res.ok) {
