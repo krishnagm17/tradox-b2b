@@ -195,7 +195,18 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
 @app.get("/api/users/me", response_model=User)
 async def get_me(token_data: dict = Depends(verify_token)):
     db = get_db()
-    res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
+    uid = token_data.get("uid")
+    user_email = token_data.get("email")
+    
+    res = db.table("users").select("*").eq("firebase_uid", uid).execute()
+    if not res.data and user_email:
+        res = db.table("users").select("*").eq("email", user_email).execute()
+        if res.data:
+            try:
+                db.table("users").update({"firebase_uid": uid}).eq("id", res.data[0]["id"]).execute()
+            except Exception as e:
+                print("Notice linking firebase_uid:", e)
+                
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
     u = res.data[0]

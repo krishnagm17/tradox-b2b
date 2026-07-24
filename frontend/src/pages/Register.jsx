@@ -97,6 +97,7 @@ export default function Register() {
       });
 
       if (res.ok) {
+        localStorage.setItem("step3_complete", "true");
         toast.success("Welcome back! Redirecting to dashboard...");
         navigate("/dashboard");
         return;

@@ -43,9 +43,11 @@ export default function Login() {
       });
 
       if (res.ok) {
+        localStorage.setItem("step3_complete", "true");
+        toast.success("Welcome back! Redirecting to dashboard...");
         navigate("/dashboard");
       } else {
-        // User needs to complete registration steps (Mobile & Company GST/ICE)
+        // User needs to complete registration steps (Mobile & Company GST/IEC)
         navigate("/register");
       }
     } catch (err) {
