@@ -99,11 +99,19 @@ export default function Register() {
         return { ok: false };
       });
 
-      localStorage.setItem("step3_complete", "true");
-      if (user.email) localStorage.setItem(`registered_${user.email}`, "true");
-
-      toast.success("Welcome back! Redirecting to website...");
-      navigate("/dashboard");
+      if (res.ok) {
+        localStorage.setItem("step3_complete", "true");
+        if (user.email) localStorage.setItem(`registered_${user.email}`, "true");
+        toast.success("Welcome back! Redirecting to dashboard...");
+        navigate("/dashboard");
+      } else {
+        // User is not in our database yet. They need to complete registration.
+        setIsGoogleAuth(true);
+        if (user.displayName) setFullName(user.displayName);
+        if (user.email) setEmail(user.email);
+        toast.info("Google Sign-In successful! Please complete your registration.");
+        setStep(2); // Move to Mobile Verification step
+      }
       return;
     } catch (err) {
       console.error("Google Sign-In Error:", err);

@@ -11,6 +11,9 @@ import {
   RecaptchaVerifier,
   linkWithPhoneNumber
 } from "firebase/auth";
+import { toast } from "sonner";
+
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function Login() {
   const navigate = useNavigate();
@@ -38,7 +41,7 @@ export default function Login() {
       const user = result.user;
 
       const token = await user.getIdToken();
-      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
+      const res = await fetch(`${API_BASE}/api/users/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       }).catch(err => {
         console.warn("Notice: Backend API unreachable during login check:", err);
@@ -92,7 +95,7 @@ export default function Login() {
       
       // Check if they have a MongoDB profile
       const token = await user.getIdToken();
-      const res = await fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/users/me", {
+      const res = await fetch(`${API_BASE}/api/users/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       
