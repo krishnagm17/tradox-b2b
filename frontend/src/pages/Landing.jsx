@@ -181,38 +181,11 @@ export default function Landing() {
             </button>
           </div>
 
-          {/* Social Proof Bar — Real Database Numbers */}
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="flex flex-col items-center">
-                <span className="text-3xl sm:text-4xl font-heading font-extrabold text-white">{stats.companies_count}</span>
-                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">Verified Businesses</span>
-              </div>
-              <div className="flex flex-col items-center border-y sm:border-y-0 sm:border-x border-slate-800 py-4 sm:py-0">
-                <span className="text-3xl sm:text-4xl font-heading font-extrabold text-white">{stats.total_lots}</span>
-                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">Active Trade Lots</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-3xl sm:text-4xl font-heading font-extrabold text-white">{stats.users_count}</span>
-                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">Registered Traders</span>
-              </div>
-            </div>
-          </div>
+
 
         </div>
       </section>
 
-      {/* Live Market Ticker */}
-      <div className="bg-slate-950 text-slate-100 border-y border-slate-800 py-3.5 overflow-hidden whitespace-nowrap text-xs font-mono shadow-inner">
-        <div className="inline-block animate-[marquee_30s_linear_infinite]">
-          <span className="mx-8">GOLD: <span className="text-emerald-400 font-bold">$2,450.50</span> / OZ {renderTickerChange(0.5)}</span>
-          <span className="mx-8">WHEAT: <span className="text-emerald-400 font-bold">$680.20</span> / MT {renderTickerChange(-1.2)}</span>
-          <span className="mx-8">BASMATI RICE: <span className="text-emerald-400 font-bold">$1,250.00</span> / MT {renderTickerChange(2.1)}</span>
-          <span className="mx-8">OPC CEMENT: <span className="text-emerald-400 font-bold">$55.00</span> / MT {renderTickerChange(0)}</span>
-          <span className="mx-8">TMT STEEL: <span className="text-emerald-400 font-bold">$620.00</span> / MT {renderTickerChange(1.1)}</span>
-          <span className="mx-8">RAW COTTON: <span className="text-emerald-400 font-bold">$1,840.00</span> / MT {renderTickerChange(0)}</span>
-        </div>
-      </div>
 
       {/* HOW IT WORKS SECTION (Simple 4-Step Diagram) */}
       <section id="how-it-works" className="py-20 sm:py-28 bg-slate-100/80 relative border-b border-slate-200">
