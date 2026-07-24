@@ -200,13 +200,31 @@ async def get_me(token_data: dict = Depends(verify_token)):
         raise HTTPException(status_code=404, detail="User not found")
     u = res.data[0]
     
+    comp_name = u.get("companyName") or u.get("company_name")
     kyb_status = u.get("kybStatus", "PENDING")
-    if kyb_status != "VERIFIED" and u.get("companyId"):
-        c_res = db.table("companies").select("*").eq("id", u["companyId"]).execute()
-        if c_res.data and c_res.data[0].get("verificationStatus") == "VERIFIED":
-            kyb_status = "VERIFIED"
+    if u.get("companyId"):
+        try:
+            c_res = db.table("companies").select("*").eq("id", u["companyId"]).execute()
+            if c_res.data:
+                comp = c_res.data[0]
+                comp_name = comp_name or comp.get("name") or comp.get("companyName")
+                if comp.get("verificationStatus") == "VERIFIED":
+                    kyb_status = "VERIFIED"
+        except Exception as e:
+            print("Notice reading company in get_me:", e)
             
-    return User(id=u["id"], firebase_uid=u["firebase_uid"], companyId=u["companyId"], name="User", email=u["email"], role=u["role"], kybStatus=kyb_status)
+    return User(
+        id=u["id"],
+        firebase_uid=u["firebase_uid"],
+        companyId=u["companyId"],
+        name=u.get("name") or "User",
+        email=u["email"],
+        phone=u.get("phone"),
+        role=u.get("role", "TRADER"),
+        kybStatus=kyb_status,
+        companyName=comp_name,
+        company_name=comp_name
+    )
 
 @app.get("/api/companies/me", response_model=Company)
 async def get_my_company(token_data: dict = Depends(verify_token)):

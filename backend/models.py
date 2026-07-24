@@ -29,6 +29,8 @@ class User(BaseModel):
     phone: Optional[str] = None
     role: str = "ADMIN" # ADMIN, MEMBER
     kybStatus: str = "PENDING"
+    companyName: Optional[str] = None
+    company_name: Optional[str] = None
     createdAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
     updatedAt: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat() + "Z")
 
