@@ -234,71 +234,23 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex bg-white text-foreground font-sans selection:bg-primary/30">
-      
-      {/* Left side branding (SaaS Split Screen) */}
-      <div className="hidden lg:flex flex-col justify-between w-[45%] bg-brand-navy text-white p-12 relative overflow-hidden h-screen sticky top-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:48px_48px] pointer-events-none" />
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans">
+      <div id="recaptcha-container" />
 
-        <div className="relative z-10 flex flex-col h-full">
-          <div className="flex flex-col gap-0.5 cursor-pointer mb-20" onClick={() => navigate("/")}>
-            <div className="font-cinzel text-lg text-white tracking-[0.08em] leading-none uppercase">
-              <span className="text-[1.3em]">T</span>radox <span className="text-[1.3em]">B2B</span>
-            </div>
-            <div className="text-[0.45rem] text-primary tracking-[0.3em] uppercase font-semibold">Enterprise Terminal</div>
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center max-w-md">
-            <div className="text-[0.65rem] font-mono tracking-widest text-primary uppercase mb-6 font-semibold">Secure Authentication</div>
-            <h1 className="text-4xl font-heading font-semibold leading-tight tracking-tight mb-12 text-white">
-              Access the world's most advanced B2B trading network.
-            </h1>
-            
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-primary text-primary bg-primary/10`}>
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <p className={`text-sm font-medium text-white`}>
-                  Enterprise-grade security and 2FA.
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-primary text-primary bg-primary/10`}>
-                  <Globe className="w-4 h-4" />
-                </div>
-                <p className={`text-sm font-medium text-white`}>
-                  Connect with 18,000+ verified buyers and suppliers.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative z-10 mt-auto pt-12 border-t border-white/10 flex items-center justify-between text-xs text-slate-500 font-mono uppercase tracking-widest">
-            <span>© 2024 TradoxB2B</span>
-            <span>Enterprise Secure</span>
-          </div>
-        </div>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <button onClick={() => navigate("/")} className="flex items-center justify-center gap-3 mx-auto mb-4 group">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold text-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">T</div>
+          <span className="text-2xl font-heading font-bold text-slate-900">Tradox<span className="text-emerald-600">B2B</span></span>
+        </button>
+        <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
+        <p className="text-sm text-slate-500 mt-1">Sign in to your TradoxB2B account</p>
       </div>
 
-      {/* Right side form */}
-      <div className="w-full lg:w-[55%] flex flex-col p-8 lg:p-16 overflow-y-auto min-h-screen bg-white relative">
-        
-        {/* Mobile Logo */}
-        <div className="lg:hidden flex flex-col gap-0.5 cursor-pointer absolute top-8 left-6" onClick={() => navigate("/")}>
-          <div className="font-cinzel text-lg text-brand-navy tracking-[0.08em] leading-none uppercase">
-            <span className="text-[1.3em]">T</span>radox <span className="text-[1.3em]">B2B</span>
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full mt-12 lg:mt-0">
-
+      <div className="max-w-md mx-auto w-full">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-slate-200">
           {!showVerification ? (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-8">
-              <h2 className="text-3xl font-heading font-semibold tracking-tight text-brand-navy mb-2">Welcome Back</h2>
-              <p className="text-muted-foreground text-sm mb-10">
-                Enter credentials to access the terminal.
-              </p>
+            <div className="animate-in fade-in duration-500">
 
               {error && (
                 <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-lg flex items-start gap-3">
@@ -373,11 +325,7 @@ export default function Login() {
               </div>
             </div>
           ) : (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-8">
-              <h2 className="text-3xl font-heading font-semibold tracking-tight text-brand-navy mb-2">Secure Entry</h2>
-              <p className="text-muted-foreground text-sm mb-10">
-                Complete authentication to proceed.
-              </p>
+            <div className="animate-in fade-in duration-500 pb-8">
 
               {error && (
                 <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-lg flex items-start gap-3">
