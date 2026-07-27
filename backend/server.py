@@ -235,21 +235,45 @@ async def get_me(token_data: dict = Depends(verify_token)):
                 
     if not res.data:
         role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else "TRADER"
-        u = {
-            "id": uid,
+        
+        # Create a default company first to satisfy the foreign key constraint
+        try:
+            comp_res = db.table("companies").insert({
+                "name": user_name + "'s Company",
+                "type": "Trading Company",
+                "verificationStatus": "PENDING"
+            }).execute()
+            company_id = comp_res.data[0]["id"]
+        except Exception as e:
+            print("Failed to create default company:", e)
+            company_id = None # Let it fail or be null if permitted
+            
+        new_user_id = str(uuid.uuid4())
+        u_insert = {
+            "id": new_user_id,
             "firebase_uid": uid,
-            "companyId": "comp_default",
-            "name": user_name,
+            "companyId": company_id,
             "email": user_email or "trader@tradoxb2b.com",
-            "phone": None,
             "role": role,
-            "kybStatus": "PENDING",
-            "companyName": None
+            "kybStatus": "PENDING"
         }
         try:
-            db.table("users").insert(u).execute()
+            db.table("users").insert(u_insert).execute()
+            # Construct a full object to return from this function matching the frontend's expectations
+            u = {
+                "id": new_user_id,
+                "firebase_uid": uid,
+                "companyId": company_id,
+                "name": user_name,
+                "email": user_email or "trader@tradoxb2b.com",
+                "phone": None,
+                "role": role,
+                "kybStatus": "PENDING",
+                "companyName": user_name + "'s Company"
+            }
         except Exception as e:
-            pass
+            print("Failed to insert user:", e)
+            u = u_insert
     else:
         u = res.data[0]
     
