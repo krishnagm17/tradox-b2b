@@ -350,7 +350,12 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
     if expiresAt:
         insert_data["expiresAt"] = expiresAt
         
-    db.table("products").insert(insert_data).execute()
+    try:
+        result = db.table("products").insert(insert_data).execute()
+        print("Product insert result:", result)
+    except Exception as e:
+        print("Product insert ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=f"DB insert failed: {str(e)}")
     return product
 
 @app.get("/api/products", response_model=List[Product])
@@ -435,7 +440,12 @@ async def create_rfq(rfq_data: RFQCreate, token_data: dict = Depends(verify_toke
     if expiresAt:
         insert_data["expiresAt"] = expiresAt
         
-    db.table("rfqs").insert(insert_data).execute()
+    try:
+        result = db.table("rfqs").insert(insert_data).execute()
+        print("RFQ insert result:", result)
+    except Exception as e:
+        print("RFQ insert ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=f"DB insert failed: {str(e)}")
     return rfq
 
 @app.get("/api/rfqs/me", response_model=List[RFQ])
