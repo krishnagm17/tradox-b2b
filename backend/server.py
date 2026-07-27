@@ -328,7 +328,12 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
         
     expiresAt = (datetime.datetime.utcnow() + datetime.timedelta(hours=product_data.durationHours)).isoformat() + "Z" if product_data.durationHours else None
     
-    product = Product(**product_data.model_dump(), companyId=res.data[0]["companyId"], createdBy=token_data.get("uid"), expiresAt=expiresAt)
+    product = Product(
+        **{k: v for k, v in product_data.model_dump().items() if k != "durationHours"},
+        companyId=res.data[0]["companyId"],
+        createdBy=token_data.get("uid"),
+        expiresAt=expiresAt
+    )
     
     insert_data = {
         "id": product.id,
@@ -409,7 +414,12 @@ async def create_rfq(rfq_data: RFQCreate, token_data: dict = Depends(verify_toke
     
     expiresAt = (datetime.datetime.utcnow() + datetime.timedelta(hours=rfq_data.durationHours)).isoformat() + "Z" if rfq_data.durationHours else None
     
-    rfq = RFQ(**rfq_data.model_dump(), companyId=res.data[0]["companyId"], createdBy=token_data.get("uid"), expiresAt=expiresAt)
+    rfq = RFQ(
+        **{k: v for k, v in rfq_data.model_dump().items() if k != "durationHours"},
+        companyId=res.data[0]["companyId"],
+        createdBy=token_data.get("uid"),
+        expiresAt=expiresAt
+    )
     
     insert_data = {
         "id": rfq.id,
