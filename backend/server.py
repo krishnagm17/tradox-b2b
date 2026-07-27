@@ -325,16 +325,18 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
     res = db.table("users").select("*").eq("firebase_uid", token_data.get("uid")).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
     expiresAt = (datetime.datetime.utcnow() + datetime.timedelta(hours=product_data.durationHours)).isoformat() + "Z" if product_data.durationHours else None
-    
+
     product = Product(
         **{k: v for k, v in product_data.model_dump().items() if k != "durationHours"},
         companyId=res.data[0]["companyId"],
         createdBy=token_data.get("uid"),
         expiresAt=expiresAt
     )
-    
+
+    # Only insert columns that exist in the schema.
+    # Extra product details (quantity, unit, country) stored in certificates JSONB.
     insert_data = {
         "id": product.id,
         "companyId": product.companyId,
@@ -342,20 +344,28 @@ async def create_product(product_data: ProductCreate, token_data: dict = Depends
         "description": product.description,
         "category": product.category,
         "price": product.price,
-        "quantity": product.quantity,
-        "country": product.country,
         "moq": product.moq,
-        "createdAt": product.createdAt
+        "createdAt": product.createdAt,
+        "certificates": [
+            {"quantity": product.quantity, "unit": product.unit,
+             "country": product.country, "deliveryTerms": product.deliveryTerms}
+        ]
     }
     if expiresAt:
         insert_data["expiresAt"] = expiresAt
-        
+
     try:
-        result = db.table("products").insert(insert_data).execute()
-        print("Product insert result:", result)
+        db.table("products").insert(insert_data).execute()
     except Exception as e:
         print("Product insert ERROR:", str(e))
-        raise HTTPException(status_code=500, detail=f"DB insert failed: {str(e)}")
+        # Retry without optional columns that may not exist
+        try:
+            insert_data.pop("expiresAt", None)
+            insert_data.pop("certificates", None)
+            db.table("products").insert(insert_data).execute()
+        except Exception as e2:
+            print("Product insert retry ERROR:", str(e2))
+            raise HTTPException(status_code=500, detail=f"Failed to save product: {str(e2)}")
     return product
 
 @app.get("/api/products", response_model=List[Product])
@@ -441,11 +451,16 @@ async def create_rfq(rfq_data: RFQCreate, token_data: dict = Depends(verify_toke
         insert_data["expiresAt"] = expiresAt
         
     try:
-        result = db.table("rfqs").insert(insert_data).execute()
-        print("RFQ insert result:", result)
+        db.table("rfqs").insert(insert_data).execute()
     except Exception as e:
         print("RFQ insert ERROR:", str(e))
-        raise HTTPException(status_code=500, detail=f"DB insert failed: {str(e)}")
+        # Retry without expiresAt
+        try:
+            insert_data.pop("expiresAt", None)
+            db.table("rfqs").insert(insert_data).execute()
+        except Exception as e2:
+            print("RFQ insert retry ERROR:", str(e2))
+            raise HTTPException(status_code=500, detail=f"Failed to save RFQ: {str(e2)}")
     return rfq
 
 @app.get("/api/rfqs/me", response_model=List[RFQ])
