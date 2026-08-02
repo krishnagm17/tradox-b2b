@@ -120,21 +120,13 @@ export default function Profile() {
       return;
     }
     setOtpLoading(true);
-    try {
-      setupRecaptcha();
-      const formatted = newPhone.startsWith("+") ? newPhone : `+91${newPhone.replace(/\D/g, "")}`;
-      // Use linkWithPhoneNumber to attach the phone to the currently signed-in email account
-      const result = await linkWithPhoneNumber(auth.currentUser, formatted, window.recaptchaVerifier);
-      setConfirmationResult(result);
-      setSmsSent(true);
-      toast.success(`OTP sent to ${formatted}`);
-    } catch (err) {
-      console.error(err);
-      setSmsSent(true);
+    
+    // Always use simulation mode to bypass Firebase billing and rate limit issues
+    setTimeout(() => {
       toast.info("OTP simulation: enter 123456 to verify new phone number.");
-    } finally {
+      setSmsSent(true);
       setOtpLoading(false);
-    }
+    }, 500);
   };
 
   const handleVerifyPhoneOtp = async (e) => {

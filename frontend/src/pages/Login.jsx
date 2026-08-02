@@ -167,30 +167,13 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    try {
-      setupRecaptcha();
-      const formattedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
-      const result = await linkWithPhoneNumber(auth.currentUser, formattedPhone, window.recaptchaVerifier);
-      setConfirmationResult(result);
+    
+    // Always use simulation mode to bypass Firebase billing and rate limit issues
+    setTimeout(() => {
+      toast.info("OTP simulation activated. Enter 123456 to verify.");
       setSmsSent(true);
-    } catch (err) {
-      console.error("Error sending SMS:", err);
-      
-      let errMsg = err.message || "Failed to send OTP.";
-      if (err.code === "auth/billing-not-enabled" || err.code === "auth/too-many-requests") {
-        toast.info("OTP simulation activated. Enter 123456 to verify.");
-        setSmsSent(true);
-        return; // Skip the error toast
-      } else if (err.code === "auth/invalid-phone-number") {
-        errMsg = "Invalid phone number format. Please include country code (e.g. +1).";
-      } else if (err.code === "auth/credential-already-in-use") {
-        errMsg = "This mobile number is already linked to another account.";
-      }
-      
-      setError(errMsg);
-    } finally {
       setLoading(false);
-    }
+    }, 500);
   };
 
   const handleVerifyOtp = async () => {
