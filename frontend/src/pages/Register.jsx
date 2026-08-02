@@ -13,6 +13,7 @@ import {
   signInWithPopup,
   RecaptchaVerifier,
   signInWithPhoneNumber,
+  linkWithPhoneNumber,
   onAuthStateChanged
 } from "firebase/auth";
 import { toast } from "sonner";
@@ -224,7 +225,12 @@ export default function Register() {
     try {
       setupRecaptcha();
       const formatted = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
-      const result = await signInWithPhoneNumber(auth, formatted, window.recaptchaVerifier);
+      let result;
+      if (auth.currentUser) {
+        result = await linkWithPhoneNumber(auth.currentUser, formatted, window.recaptchaVerifier);
+      } else {
+        result = await signInWithPhoneNumber(auth, formatted, window.recaptchaVerifier);
+      }
       setConfirmationResult(result);
       setSmsSent(true);
       toast.success(`OTP sent to ${formatted}`);
