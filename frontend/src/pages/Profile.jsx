@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../config/firebase";
-import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber, linkWithPhoneNumber } from "firebase/auth";
 import {
   ArrowLeft, User, Mail, Phone, Building2,
   Globe, Briefcase, Shield, Edit2, Save, X,
@@ -123,7 +123,8 @@ export default function Profile() {
     try {
       setupRecaptcha();
       const formatted = newPhone.startsWith("+") ? newPhone : `+91${newPhone.replace(/\D/g, "")}`;
-      const result = await signInWithPhoneNumber(auth, formatted, window.recaptchaVerifier);
+      // Use linkWithPhoneNumber to attach the phone to the currently signed-in email account
+      const result = await linkWithPhoneNumber(auth.currentUser, formatted, window.recaptchaVerifier);
       setConfirmationResult(result);
       setSmsSent(true);
       toast.success(`OTP sent to ${formatted}`);
