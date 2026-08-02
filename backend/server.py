@@ -290,7 +290,11 @@ async def get_me(token_data: dict = Depends(verify_token)):
         except Exception as e:
             print("Notice reading company in get_me:", e)
             
-    role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else (u.get("role") if u.get("role") != "ADMIN" else "TRADER")
+    role = "PLATFORM OWNER" if user_email in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else u.get("role", "TRADER")
+    
+    # Platform owners and admins bypass KYB verification
+    if role in ["PLATFORM OWNER", "ADMIN"]:
+        kyb_status = "VERIFIED"
     
     # Create response dictionary
     user_resp = dict(u)
