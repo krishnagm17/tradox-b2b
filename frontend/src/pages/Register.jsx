@@ -235,9 +235,26 @@ export default function Register() {
       setSmsSent(true);
       toast.success(`OTP sent to ${formatted}`);
     } catch (err) {
-      console.error(err);
-      setSmsSent(true);
-      toast.info("OTP simulation: enter 123456 to verify.");
+      console.error("OTP Error:", err);
+      // Clean up recaptcha if it failed so they can try again
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+      
+      let errMsg = err.message || "Failed to send OTP.";
+      if (err.code === "auth/invalid-phone-number") {
+        errMsg = "Invalid mobile number format. Include country code.";
+      } else if (err.code === "auth/too-many-requests") {
+        errMsg = "Too many attempts. Please try again later.";
+      } else if (err.code === "auth/credential-already-in-use") {
+        errMsg = "This mobile number is already linked to another account.";
+      } else if (err.code === "auth/provider-already-linked") {
+        errMsg = "You have already verified a mobile number.";
+      }
+      
+      toast.error(errMsg);
+      setErrorMsg(errMsg);
     } finally {
       setOtpLoading(false);
     }
