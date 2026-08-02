@@ -210,7 +210,7 @@ export default function Login() {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpCode || !confirmationResult || !auth.currentUser) return;
+    if (!otpCode || !auth.currentUser) return;
     setError("");
     setLoading(true);
     try {
