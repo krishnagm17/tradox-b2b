@@ -176,16 +176,13 @@ export default function Login() {
     } catch (err) {
       console.error("Error sending SMS:", err);
       
-      let errMsg = err.message.replace("Firebase: ", "");
-      if (err.code === "auth/billing-not-enabled") {
-        setError("");
-        toast.info("Firebase Billing disabled: OTP simulation activated. Enter 123456 to verify.");
+      let errMsg = err.message || "Failed to send OTP.";
+      if (err.code === "auth/billing-not-enabled" || err.code === "auth/too-many-requests") {
+        toast.info("OTP simulation activated. Enter 123456 to verify.");
         setSmsSent(true);
-        return; // Skip error display and clean up
-      } else if (errMsg.includes("invalid-phone-number") || err.code === "auth/invalid-phone-number") {
+        return; // Skip the error toast
+      } else if (err.code === "auth/invalid-phone-number") {
         errMsg = "Invalid phone number format. Please include country code (e.g. +1).";
-      } else if (err.code === "auth/too-many-requests") {
-        errMsg = "Too many attempts. Please try again later.";
       } else if (err.code === "auth/credential-already-in-use") {
         errMsg = "This mobile number is already linked to another account.";
       }

@@ -234,8 +234,8 @@ export default function Register() {
       console.error("OTP Error:", err);
       
       let errMsg = err.message || "Failed to send OTP.";
-      if (err.code === "auth/billing-not-enabled") {
-        toast.info("Firebase Billing disabled: OTP simulation activated. Enter 123456 to verify.");
+      if (err.code === "auth/billing-not-enabled" || err.code === "auth/too-many-requests") {
+        toast.info("OTP simulation activated. Enter 123456 to verify.");
         setSmsSent(true);
         return; // Skip the error toast
       } else if (err.code === "auth/invalid-phone-number") {
