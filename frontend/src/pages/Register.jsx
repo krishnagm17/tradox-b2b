@@ -209,13 +209,9 @@ export default function Register() {
 
   // ─── STEP 2 — PHONE OTP ────────────────────────────────────────────────────
   const setupRecaptcha = () => {
-    if (window.recaptchaVerifier) {
-      window.recaptchaVerifier.clear();
-      window.recaptchaVerifier = null;
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
     }
-    const el = document.getElementById("recaptcha-container");
-    if (el) el.innerHTML = "";
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
   };
 
   const handleSendOtp = async () => {
@@ -236,11 +232,6 @@ export default function Register() {
       toast.success(`OTP sent to ${formatted}`);
     } catch (err) {
       console.error("OTP Error:", err);
-      // Clean up recaptcha if it failed so they can try again
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      }
       
       let errMsg = err.message || "Failed to send OTP.";
       if (err.code === "auth/billing-not-enabled") {
