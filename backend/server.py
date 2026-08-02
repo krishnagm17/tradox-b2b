@@ -12,6 +12,7 @@ from fastapi import UploadFile, File, Form, Body
 
 from models import UserCreate, User, Company, Product, ProductCreate, RFQCreate, RFQ, NegotiationRoom, Message, Quote, Order, OfferCard, OfferVersion
 from auth import verify_token
+from firebase_admin import auth as fb_auth
 from ws_manager import manager
 from routers.kyb import router as kyb_router
 from dotenv import load_dotenv
@@ -318,6 +319,10 @@ async def update_me(data: dict = Body(...), token_data: dict = Depends(verify_to
         update_data["name"] = data["name"].strip()
     if "phone" in data and data["phone"]:
         update_data["phone"] = data["phone"].strip()
+        try:
+            fb_auth.update_user(uid, phone_number=data["phone"].strip())
+        except Exception as e:
+            print("Notice updating phone in Firebase:", e)
         
     res = db.table("users").select("*").eq("firebase_uid", uid).execute()
     if not res.data and user_email:
