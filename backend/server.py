@@ -149,6 +149,46 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
     firebase_uid = user_data.firebase_uid
     db = get_db()
     
+    try:
+        # Save country to Firebase custom claims since it's not in the DB schema
+        fb_auth.set_custom_user_claims(firebase_uid, {'country': user_data.country})
+    except Exception as e:
+        print("Notice saving country to claims:", e)
+        
+    existing = db.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
+    if existing.data:
+        existing_u = existing.data[0]
+        
+        # Update existing company
+        comp_id = existing_u.get("companyId")
+        if comp_id:
+            try:
+                db.table("companies").update({
+                    "name": user_data.companyName,
+                    "type": user_data.businessCategory
+                }).eq("id", comp_id).execute()
+            except Exception as e:
+                print("Notice updating company:", e)
+
+        try:
+            db.table("users").update({
+                "name": user_data.name or existing_u.get("name"),
+                "phone": user_data.phone or existing_u.get("phone")
+            }).eq("firebase_uid", firebase_uid).execute()
+        except Exception as e:
+            print("Notice updating user:", e)
+            
+        return User(
+            id=existing_u["id"],
+            firebase_uid=firebase_uid,
+            companyId=comp_id,
+            name=user_data.name or existing_u.get("name") or "User",
+            email=user_data.email or existing_u.get("email"),
+            role=existing_u.get("role", "TRADER"),
+            kybStatus=existing_u.get("kybStatus", "PENDING")
+        )
+        
+    # If user didn't exist, create company and user
     company = Company(
         companyName=user_data.companyName,
         gst=user_data.gst,
@@ -157,7 +197,6 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
         businessCategory=user_data.businessCategory,
         address=user_data.address
     )
-    
     try:
         db.table("companies").insert({
             "id": company.id,
@@ -168,28 +207,6 @@ async def create_user(user_data: UserCreate, token_data: dict = Depends(verify_t
         }).execute()
     except Exception as e:
         print("Notice inserting company:", e)
-        
-    existing = db.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
-    if existing.data:
-        existing_u = existing.data[0]
-        try:
-            db.table("users").update({
-                "companyId": company.id,
-                "name": user_data.name or existing_u.get("name"),
-                "phone": user_data.phone or existing_u.get("phone")
-            }).eq("firebase_uid", firebase_uid).execute()
-        except Exception as e:
-            print("Notice updating user:", e)
-            
-        return User(
-            id=existing_u["id"],
-            firebase_uid=firebase_uid,
-            companyId=company.id,
-            name=user_data.name or existing_u.get("name") or "User",
-            email=user_data.email or existing_u.get("email"),
-            role=existing_u.get("role", "TRADER"),
-            kybStatus=existing_u.get("kybStatus", "PENDING")
-        )
         
     user_role = "PLATFORM OWNER" if user_data.email and user_data.email.strip().lower() in ["krishnametri223344@gmail.com", "owner@tradoxb2b.com"] else "TRADER"
     
@@ -350,7 +367,16 @@ async def get_my_company(token_data: dict = Depends(verify_token)):
         raise HTTPException(status_code=404, detail="Company not found")
     
     c = c_res.data[0]
-    return Company(id=c["id"], companyName=c["name"], businessCategory=c["type"], country="Unknown", address="Unknown", kybStatus=res.data[0]["kybStatus"])
+    
+    country = "Unknown"
+    try:
+        fb_user = fb_auth.get_user(token_data.get("uid"))
+        if fb_user.custom_claims and "country" in fb_user.custom_claims:
+            country = fb_user.custom_claims["country"]
+    except Exception as e:
+        print("Notice getting country claim:", e)
+        
+    return Company(id=c["id"], companyName=c["name"], businessCategory=c["type"], country=country, address="Unknown", kybStatus=res.data[0]["kybStatus"])
 
 @app.post("/api/products", response_model=Product)
 async def create_product(product_data: ProductCreate, token_data: dict = Depends(verify_token)):
