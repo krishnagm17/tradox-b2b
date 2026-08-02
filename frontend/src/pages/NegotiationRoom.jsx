@@ -277,19 +277,19 @@ export default function NegotiationRoom() {
             <button onClick={() => navigate("/inbox")} className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isBuyListing ? "bg-blue-900/40" : "bg-orange-900/40"}`}>
-              {isBuyListing ? <ShoppingCart className="w-4 h-4 text-blue-400" /> : <Package className="w-4 h-4 text-orange-400" />}
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isBuyListing ? "bg-blue-100" : "bg-orange-100"}`}>
+              {isBuyListing ? <ShoppingCart className="w-4 h-4 text-blue-600" /> : <Package className="w-4 h-4 text-orange-600" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-foreground truncate max-w-[160px] sm:max-w-xs">{commodity}</span>
-                <span className={`text-[0.55rem] font-bold px-1.5 py-0.5 rounded border ${isBuyListing ? "text-blue-400 bg-blue-900/30 border-blue-800" : "text-orange-400 bg-orange-900/30 border-orange-800"}`}>
+                <span className={`text-[0.55rem] font-bold px-1.5 py-0.5 rounded border ${isBuyListing ? "text-blue-700 bg-blue-50 border-blue-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>
                   {isBuyListing ? "BUY REQ" : "SELL OFFER"}
                 </span>
                 <span className={`text-[0.55rem] font-bold px-1.5 py-0.5 rounded border ${
-                  room.status === "ACTIVE" ? "text-emerald-400 bg-emerald-900/30 border-emerald-800" :
-                  room.status === "ACCEPTED" ? "text-blue-400 bg-blue-900/30 border-blue-800" :
-                  "text-slate-400 bg-slate-800 border-slate-700"
+                  room.status === "ACTIVE" ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
+                  room.status === "ACCEPTED" ? "text-blue-700 bg-blue-50 border-blue-200" :
+                  "text-slate-600 bg-slate-100 border-slate-200"
                 }`}>{room.status}</span>
               </div>
               <div className="text-[0.6rem] text-muted-foreground flex items-center gap-2">
@@ -329,21 +329,21 @@ export default function NegotiationRoom() {
         {(room.quantity || room.price || room.unit) && (
           <div className="flex items-center gap-3 px-4 sm:px-6 pb-3 overflow-x-auto">
             {room.quantity && (
-              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-white/5 border border-white/10 px-2 py-1 rounded-md whitespace-nowrap">
-                <Hash className="w-3 h-3 text-primary/60" />
-                <span className="text-muted-foreground">Qty:</span>
-                <span className="text-foreground font-semibold">{room.quantity} {room.unit || "MT"}</span>
+              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-slate-100 border border-slate-200 px-2 py-1 rounded-md whitespace-nowrap">
+                <Hash className="w-3 h-3 text-slate-500" />
+                <span className="text-slate-500">Qty:</span>
+                <span className="text-slate-900 font-semibold">{room.quantity} {room.unit || "MT"}</span>
               </span>
             )}
             {room.price && (
-              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-white/5 border border-white/10 px-2 py-1 rounded-md whitespace-nowrap">
-                <span className="text-muted-foreground">Listed:</span>
-                <span className="text-emerald-400 font-semibold">${parseFloat(room.price).toLocaleString()}</span>
+              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-slate-100 border border-slate-200 px-2 py-1 rounded-md whitespace-nowrap">
+                <span className="text-slate-500">Listed:</span>
+                <span className="text-emerald-600 font-semibold">${parseFloat(room.price).toLocaleString()}</span>
               </span>
             )}
             {latestOffer && (
-              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-primary/10 border border-primary/30 px-2 py-1 rounded-md whitespace-nowrap">
-                <span className="text-primary/60">Latest Offer v{latestOffer.version}:</span>
+              <span className="flex items-center gap-1 text-[0.65rem] font-mono bg-primary/10 border border-primary/20 px-2 py-1 rounded-md whitespace-nowrap">
+                <span className="text-primary/70">Latest Offer v{latestOffer.version}:</span>
                 <span className="text-primary font-bold">${latestOffer.card?.price?.toLocaleString()}</span>
               </span>
             )}
