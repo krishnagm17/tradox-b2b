@@ -243,7 +243,11 @@ export default function Register() {
       }
       
       let errMsg = err.message || "Failed to send OTP.";
-      if (err.code === "auth/invalid-phone-number") {
+      if (err.code === "auth/billing-not-enabled") {
+        toast.info("Firebase Billing disabled: OTP simulation activated. Enter 123456 to verify.");
+        setSmsSent(true);
+        return; // Skip the error toast
+      } else if (err.code === "auth/invalid-phone-number") {
         errMsg = "Invalid mobile number format. Include country code.";
       } else if (err.code === "auth/too-many-requests") {
         errMsg = "Too many attempts. Please try again later.";
